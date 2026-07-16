@@ -2,8 +2,10 @@
   "name": "studyforge-ai",
   "version": "1.0.0",
   "description": "Protótipo front-end navegável do fluxo principal do StudyForge AI.",
-  "main": "app.js",
+  "main": "server.js",
   "scripts": {
+    "start": "node server.js",
+    "db:reset": "node scripts/setup-db.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

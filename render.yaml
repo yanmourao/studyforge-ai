@@ -1,0 +1,24 @@
+databases:
+  - name: studyforge-ai-db
+    plan: free
+    databaseName: studyforge
+    user: studyforge
+
+services:
+  - type: web
+    name: studyforge-ai
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: studyforge-ai-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: NODE_ENV
+        value: production
+      - key: ALLOWED_ORIGIN
+        value: https://yanmourao.github.io

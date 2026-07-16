@@ -8,6 +8,10 @@ const pool = require("./db");
 const SESSION_SECRET = process.env.SESSION_SECRET;
 const SESSION_COOKIE = "sf_session";
 const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const IS_PROD = process.env.NODE_ENV === "production";
+// Origem do front-end hospedado (GitHub Pages). Em dev local, qualquer
+// origem sem header (mesma origem) já funciona sem CORS.
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "https://yanmourao.github.io";
 
 function sign(value) {
   return crypto.createHmac("sha256", SESSION_SECRET).update(value).digest("base64url");
@@ -49,14 +53,30 @@ function parseCookies(req) {
 function setSessionCookie(res, userId) {
   const token = createSessionToken(userId);
   const maxAgeSeconds = Math.floor(SESSION_MAX_AGE_MS / 1000);
-  res.setHeader("Set-Cookie", `${SESSION_COOKIE}=${token}; HttpOnly; Path=/; Max-Age=${maxAgeSeconds}; SameSite=Lax`);
+  // Cross-site (GitHub Pages -> Render) exige SameSite=None + Secure (HTTPS).
+  // Em dev local (http, mesma origem) usamos SameSite=Lax sem Secure.
+  const attrs = IS_PROD
+    ? `HttpOnly; Path=/; Max-Age=${maxAgeSeconds}; SameSite=None; Secure`
+    : `HttpOnly; Path=/; Max-Age=${maxAgeSeconds}; SameSite=Lax`;
+  res.setHeader("Set-Cookie", `${SESSION_COOKIE}=${token}; ${attrs}`);
 }
 
 function clearSessionCookie(res) {
-  res.setHeader("Set-Cookie", `${SESSION_COOKIE}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax`);
+  const attrs = IS_PROD
+    ? "HttpOnly; Path=/; Max-Age=0; SameSite=None; Secure"
+    : "HttpOnly; Path=/; Max-Age=0; SameSite=Lax";
+  res.setHeader("Set-Cookie", `${SESSION_COOKIE}=; ${attrs}`);
 }
 
 const app = express();
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
 app.use(express.json());
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
 app.get("/app.js", (req, res) => res.sendFile(path.join(__dirname, "app.js")));
@@ -141,4 +161,12 @@ app.post("/api/logout", (req, res) => {
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`StudyForge AI rodando em http://localhost:${port}`));
+pool
+  .ensureSchema()
+  .then(() => {
+    app.listen(port, () => console.log(`StudyForge AI rodando em http://localhost:${port}`));
+  })
+  .catch((error) => {
+    console.error("Falha ao preparar o banco de dados:", error.message);
+    process.exit(1);
+  });

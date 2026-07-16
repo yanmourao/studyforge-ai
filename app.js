@@ -1,3 +1,10 @@
+// Quando o front-end roda no GitHub Pages, ele precisa apontar para o
+// backend hospedado separadamente (Render). Em desenvolvimento local
+// (mesma origem do server.js) usamos caminho relativo.
+const API_BASE = window.location.hostname.endsWith("github.io")
+  ? "https://studyforge-ai.onrender.com"
+  : "";
+
 const state = {
   step: 1,
   currentView: "overview",
@@ -58,9 +65,10 @@ async function registerUser() {
   }
 
   try {
-    const response = await fetch("/api/signup", {
+    const response = await fetch(`${API_BASE}/api/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ name, email, password })
     });
     const data = await response.json();
@@ -78,9 +86,10 @@ async function registerUser() {
 
 async function loginUser(email, password) {
   try {
-    const response = await fetch("/api/login", {
+    const response = await fetch(`${API_BASE}/api/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ email, password })
     });
     const data = await response.json();
@@ -299,7 +308,7 @@ document.addEventListener("click", async (event) => {
     }
     if (action === "toggle-sidebar") $(".sidebar").classList.toggle("sidebar-open");
     if (action === "logout") {
-      await fetch("/api/logout", { method: "POST" });
+      await fetch(`${API_BASE}/api/logout`, { method: "POST", credentials: "include" });
       window.location.reload();
     }
   }
@@ -361,7 +370,7 @@ renderWeekPlan();
 
 async function restoreSession() {
   try {
-    const response = await fetch("/api/me");
+    const response = await fetch(`${API_BASE}/api/me`, { credentials: "include" });
     if (!response.ok) return;
     const data = await response.json();
     state.user.id = data.id;
