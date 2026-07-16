@@ -30,7 +30,6 @@ function updateOnboardingProgress() {
   $$(".progress-step").forEach((step, index) => {
     step.classList.toggle("active", index + 1 <= state.step);
   });
-  $$(".form-step").forEach((step) => {
     step.classList.toggle("active", Number(step.dataset.step) === state.step);
   });
 }
@@ -125,6 +124,11 @@ function goToOnboarding() {
   $(".form-card").classList.remove("is-generating");
   $("#generating-state").classList.remove("active");
   updateOnboardingProgress();
+}
+
+function goToLogin() {
+  showScreen("login-screen");
+  $("#login-form").reset();
 }
 
 function switchView(view) {
@@ -256,6 +260,17 @@ document.addEventListener("click", (event) => {
   }
 });
 
+  if (!email || !password) {
+    showToast("Preencha e-mail e senha para entrar.");
+    return;
+  }
+
+  submitButton.disabled = true;
+  const loggedIn = await loginUser(email, password);
+  submitButton.disabled = false;
+  if (loggedIn) enterDashboard();
+});
+
 $("#chat-form").addEventListener("submit", (event) => {
   event.preventDefault();
   const input = $("#chat-input");
@@ -267,3 +282,18 @@ $("#chat-form").addEventListener("submit", (event) => {
 setUserLabels();
 renderSchedule();
 renderWeekPlan();
+
+async function restoreSession() {
+  try {
+    const response = await fetch("/api/me");
+    if (!response.ok) return;
+    const data = await response.json();
+    state.user.id = data.id;
+    state.user.name = data.name;
+    enterDashboard();
+  } catch (error) {
+    // Sem conexão com o servidor: permanece na landing page.
+  }
+}
+
+restoreSession();
