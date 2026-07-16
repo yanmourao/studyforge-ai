@@ -26,6 +26,21 @@ async function ensureSchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS study_sessions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      subject VARCHAR(100) NOT NULL,
+      detail VARCHAR(255) NOT NULL DEFAULT '',
+      session_date DATE NOT NULL DEFAULT CURRENT_DATE,
+      session_time VARCHAR(5) NOT NULL DEFAULT '08:00',
+      duration_minutes INTEGER NOT NULL DEFAULT 30,
+      tag VARCHAR(30) NOT NULL DEFAULT 'Prática',
+      completed BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS study_sessions_user_date_idx ON study_sessions (user_id, session_date)`);
 }
 
 module.exports = pool;

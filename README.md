@@ -39,15 +39,11 @@ node scripts/setup-db.js
 - Onboarding em três etapas
 - Escolha de objetivo, prazo, carga horária, nível e matérias
 - Geração simulada de plano com estado de carregamento
-- Dashboard com foco do dia, sequência, tempo estudado e ritmo semanal
-- Marcação de sessões como concluídas
-- Adição de sessão extra
-- Visualização do plano semanal
+- Cadastro e login salvos em PostgreSQL (tabela `users`, senha com hash bcrypt), com sessão persistente por cookie
+- Sessões de estudo reais na tabela `study_sessions`: marcar como concluída e adicionar sessão extra gravam no banco
+- Dashboard 100% orientado a dados reais do usuário: foco do dia, sequência de dias estudados, tempo estudado na semana, ritmo semanal, horas nos últimos 30 dias e domínio por matéria são todos calculados a partir das sessões registradas (sem números fixos de demonstração)
+- Visualização do plano semanal (sugestão gerada a partir das matérias escolhidas, com datas reais)
 - Tutor IA demonstrativo com respostas simuladas
-- Tela de progresso por matéria
 - Layout responsivo para desktop e celular
 
-- Cadastro do onboarding salvo em PostgreSQL (tabela `users`, senha com hash bcrypt)
-- Tela de login para quem já tem cadastro (e-mail + senha, com verificação via bcrypt)
-
-A integração real com sessão persistente (permanecer logado ao recarregar a página) e API da OpenAI pode ser adicionada sobre esta base.
+A integração real com API da OpenAI (tutor e geração de plano) pode ser adicionada sobre esta base.

@@ -38,6 +38,10 @@ function verifySessionToken(token) {
   }
 }
 
+function getAuthenticatedUserId(req) {
+  return verifySessionToken(parseCookies(req)[SESSION_COOKIE]);
+}
+
 function parseCookies(req) {
   const header = req.headers.cookie;
   const cookies = {};
@@ -137,7 +141,7 @@ app.post("/api/login", async (req, res) => {
 });
 
 app.get("/api/me", async (req, res) => {
-  const userId = verifySessionToken(parseCookies(req)[SESSION_COOKIE]);
+  const userId = getAuthenticatedUserId(req);
   if (!userId) {
     return res.status(401).json({ error: "Não autenticado." });
   }
@@ -158,6 +162,101 @@ app.get("/api/me", async (req, res) => {
 app.post("/api/logout", (req, res) => {
   clearSessionCookie(res);
   res.status(204).end();
+});
+
+app.get("/api/dashboard", async (req, res) => {
+  const userId = getAuthenticatedUserId(req);
+  if (!userId) {
+    return res.status(401).json({ error: "Não autenticado." });
+  }
+
+  try {
+    const today = await pool.query(
+      `SELECT id, subject, detail, session_time, duration_minutes, tag, completed
+       FROM study_sessions
+       WHERE user_id = $1 AND session_date = CURRENT_DATE
+       ORDER BY session_time ASC`,
+      [userId]
+    );
+
+    const daily = await pool.query(
+      `SELECT session_date::text AS date,
+              COALESCE(SUM(duration_minutes) FILTER (WHERE completed), 0) AS minutes,
+              BOOL_OR(completed) AS has_completed
+       FROM study_sessions
+       WHERE user_id = $1 AND session_date >= CURRENT_DATE - INTERVAL '29 days'
+       GROUP BY session_date`,
+      [userId]
+    );
+
+    const subjects = await pool.query(
+      `SELECT subject, COUNT(*) AS total, COUNT(*) FILTER (WHERE completed) AS completed
+       FROM study_sessions
+       WHERE user_id = $1
+       GROUP BY subject
+       ORDER BY total DESC`,
+      [userId]
+    );
+
+    res.json({ today: today.rows, daily: daily.rows, subjects: subjects.rows });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Erro ao carregar dados do dashboard." });
+  }
+});
+
+app.post("/api/sessions", async (req, res) => {
+  const userId = getAuthenticatedUserId(req);
+  if (!userId) {
+    return res.status(401).json({ error: "Não autenticado." });
+  }
+
+  const subject = (req.body.subject || "").trim();
+  const detail = (req.body.detail || "").trim();
+  const time = (req.body.time || "08:00").trim();
+  const duration = Number(req.body.duration) || 30;
+  const tag = (req.body.tag || "Prática").trim();
+
+  if (!subject) {
+    return res.status(400).json({ error: "Informe a matéria da sessão." });
+  }
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO study_sessions (user_id, subject, detail, session_time, duration_minutes, tag)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, subject, detail, session_time, duration_minutes, tag, completed`,
+      [userId, subject, detail, time, duration, tag]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Erro ao criar sessão de estudo." });
+  }
+});
+
+app.post("/api/sessions/:id/toggle", async (req, res) => {
+  const userId = getAuthenticatedUserId(req);
+  if (!userId) {
+    return res.status(401).json({ error: "Não autenticado." });
+  }
+
+  const sessionId = Number(req.params.id);
+  try {
+    const result = await pool.query(
+      `UPDATE study_sessions SET completed = NOT completed
+       WHERE id = $1 AND user_id = $2
+       RETURNING id, subject, detail, session_time, duration_minutes, tag, completed`,
+      [sessionId, userId]
+    );
+    if (!result.rows[0]) {
+      return res.status(404).json({ error: "Sessão não encontrada." });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Erro ao atualizar sessão." });
+  }
 });
 
 const port = process.env.PORT || 3000;

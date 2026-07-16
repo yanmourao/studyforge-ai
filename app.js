@@ -5,22 +5,20 @@ const API_BASE = window.location.hostname.endsWith("github.io")
   ? "https://studyforge-ai-ccer.onrender.com"
   : "";
 
+const WEEKDAY_LABELS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
+
 const state = {
   step: 1,
   currentView: "overview",
   user: {
-    name: "Rafaela",
+    name: "Estudante",
     objective: "ENEM",
     days: 90,
     hours: 2,
     level: "Intermediário",
-    subjects: ["Matemática", "Português", "Biologia"]
+    subjects: []
   },
-  sessions: [
-    { id: 1, time: "08:00", subject: "Matemática", detail: "Função quadrática · revisão", duration: "50 min", tag: "Foco", tagClass: "tag-coral", completed: true },
-    { id: 2, time: "10:00", subject: "Português", detail: "Interpretação de texto", duration: "40 min", tag: "Leitura", tagClass: "tag-mint", completed: true },
-    { id: 3, time: "19:00", subject: "Biologia", detail: "Ecologia · questões", duration: "30 min", tag: "Prática", tagClass: "tag-lilac", completed: false }
-  ]
+  sessions: []
 };
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -124,6 +122,11 @@ function formatDate() {
   return new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(date).toUpperCase();
 }
 
+function formatShortDate() {
+  const date = new Date();
+  return new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "short" }).format(date).toUpperCase().replace(".", "");
+}
+
 function setUserLabels() {
   const firstName = state.user.name.split(" ")[0] || "Estudante";
   const avatar = initials(state.user.name);
@@ -136,28 +139,35 @@ function setUserLabels() {
   $("#plan-hours").textContent = `${state.user.hours} ${state.user.hours === 1 ? "hora" : "horas"}`;
   $("#plan-level").textContent = state.user.level.toLowerCase();
   $("#current-date").textContent = formatDate();
+  $("#today-panel-date").textContent = formatShortDate();
 }
 
 function renderSchedule() {
   const list = $("#schedule-list");
   if (!list) return;
-  list.innerHTML = state.sessions.map((session, index) => `
-    <div class="schedule-item ${session.completed ? "completed" : ""} ${!session.completed && index === 2 ? "active-item" : ""}" data-session-id="${session.id}">
-      <button class="schedule-check" aria-label="Marcar ${session.subject} como concluído">${session.completed ? "✓" : ""}</button>
-      <span class="schedule-time">${session.time}</span>
-      <span class="schedule-copy"><strong>${session.subject}</strong><small>${session.detail}</small></span>
-      <span class="schedule-tag ${session.tagClass}">${session.tag}</span>
-    </div>
-  `).join("");
+  list.innerHTML = state.sessions.length
+    ? state.sessions.map((session, index) => `
+      <div class="schedule-item ${session.completed ? "completed" : ""} ${!session.completed && index === 2 ? "active-item" : ""}" data-session-id="${session.id}">
+        <button class="schedule-check" aria-label="Marcar ${session.subject} como concluído">${session.completed ? "✓" : ""}</button>
+        <span class="schedule-time">${session.time}</span>
+        <span class="schedule-copy"><strong>${session.subject}</strong><small>${session.detail}</small></span>
+        <span class="schedule-tag ${session.tagClass}">${session.tag}</span>
+      </div>
+    `).join("")
+    : `<p class="empty-state-text">Nenhuma sessão de estudo hoje ainda. Adicione uma para começar.</p>`;
   const complete = state.sessions.filter((session) => session.completed).length;
   const total = state.sessions.length;
-  const percent = Math.round((complete / total) * 100);
+  const percent = total > 0 ? Math.round((complete / total) * 100) : 0;
   $("#schedule-completed").textContent = complete;
   $("#schedule-total").textContent = total;
   $("#today-progress").innerHTML = `${complete}<small>/${total}</small>`;
   $("#today-bar").style.width = `${percent}%`;
-  $("#today-percent").textContent = `${percent}% do dia completo`;
-  $("#schedule-progress-label").textContent = complete === total ? "dia concluído" : `${Math.max(0, total - complete)} sessão${total - complete === 1 ? "" : "ões"} restante${total - complete === 1 ? "" : "s"}`;
+  $("#today-percent").textContent = total > 0 ? `${percent}% do dia completo` : "Nenhuma sessão hoje";
+  $("#schedule-progress-label").textContent = total === 0
+    ? "adicione sua primeira sessão"
+    : complete === total
+      ? "dia concluído"
+      : `${Math.max(0, total - complete)} sessão${total - complete === 1 ? "" : "ões"} restante${total - complete === 1 ? "" : "s"}`;
 }
 
 function subjectTagClass(subject) {
@@ -169,25 +179,245 @@ function renderWeekPlan() {
   const list = $("#week-list");
   if (!list) return;
   const subjects = state.user.subjects.length ? state.user.subjects : ["Matemática", "Português"];
-  const days = ["Hoje", "Amanhã", "Sexta-feira", "Sábado", "Domingo"];
-  const dates = ["15 mai", "16 mai", "17 mai", "18 mai", "19 mai"];
-  list.innerHTML = days.map((day, dayIndex) => {
+  const today = new Date();
+  const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
+  const weekdayFormatter = new Intl.DateTimeFormat("pt-BR", { weekday: "long" });
+  list.innerHTML = Array.from({ length: 5 }, (_, dayIndex) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() + dayIndex);
+    const label = dayIndex === 0
+      ? "Hoje"
+      : dayIndex === 1
+        ? "Amanhã"
+        : weekdayFormatter.format(date).replace(/^\p{L}/u, (letter) => letter.toUpperCase());
+    const dateLabel = dateFormatter.format(date).replace(".", "");
     const first = subjects[dayIndex % subjects.length];
     const second = subjects[(dayIndex + 1) % subjects.length];
     const sessions = [
       { time: dayIndex === 0 ? "08:00" : "09:00", subject: first, detail: dayIndex % 2 ? "conteúdo novo" : "revisão espaçada", className: subjectTagClass(first) },
       ...(state.user.hours >= 2 ? [{ time: dayIndex === 0 ? "10:00" : "19:00", subject: second, detail: "questões e prática", className: subjectTagClass(second) }] : [])
     ];
-    return `<article class="week-day ${dayIndex === 0 ? "today" : ""}"><div class="week-day-label"><strong>${day}</strong><span>${dates[dayIndex]}</span></div><div class="week-day-sessions">${sessions.map((session) => `<div class="week-session ${session.className}"><span class="time">${session.time}</span><strong>${session.subject}</strong><small>${session.detail}</small></div>`).join("")}</div></article>`;
+    return `<article class="week-day ${dayIndex === 0 ? "today" : ""}"><div class="week-day-label"><strong>${label}</strong><span>${dateLabel}</span></div><div class="week-day-sessions">${sessions.map((session) => `<div class="week-session ${session.className}"><span class="time">${session.time}</span><strong>${session.subject}</strong><small>${session.detail}</small></div>`).join("")}</div></article>`;
   }).join("");
+}
+
+function tagClassFor(tag) {
+  const classes = { "Foco": "tag-coral", "Leitura": "tag-mint", "Prática": "tag-lilac", "Extra": "tag-mint" };
+  return classes[tag] || "tag-lilac";
+}
+
+function toDateKey(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function lastNDates(n) {
+  const dates = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - i);
+    dates.push(date);
+  }
+  return dates;
+}
+
+function buildDailyMap(daily) {
+  const map = new Map();
+  daily.forEach((row) => {
+    map.set(row.date, { minutes: Number(row.minutes) || 0, hasCompleted: Boolean(row.has_completed) });
+  });
+  return map;
+}
+
+function computeStreak(dailyMap) {
+  let current = 0;
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+  while (dailyMap.get(toDateKey(cursor))?.hasCompleted) {
+    current += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  let best = current;
+  let running = 0;
+  let prevDate = null;
+  [...dailyMap.keys()].sort().forEach((key) => {
+    if (!dailyMap.get(key).hasCompleted) {
+      running = 0;
+      prevDate = null;
+      return;
+    }
+    const date = new Date(key);
+    const diffDays = prevDate ? Math.round((date - prevDate) / 86400000) : 1;
+    running = diffDays === 1 ? running + 1 : 1;
+    best = Math.max(best, running);
+    prevDate = date;
+  });
+
+  return { current, best };
+}
+
+function renderStreakCard(dailyMap, streak) {
+  const countEl = $("#streak-count");
+  if (countEl) countEl.textContent = streak.current;
+  const labelEl = $("#streak-label");
+  if (labelEl) labelEl.textContent = streak.current > 0 ? "Você está no ritmo!" : "Comece sua sequência hoje.";
+  const bestEl = $("#streak-best");
+  if (bestEl) bestEl.textContent = `Melhor: ${streak.best} ${streak.best === 1 ? "dia" : "dias"}`;
+
+  const daysEl = $("#mini-days");
+  if (daysEl) {
+    daysEl.innerHTML = lastNDates(7).map((date, index) => {
+      const isToday = index === 6;
+      const done = dailyMap.get(toDateKey(date))?.hasCompleted;
+      return `<span class="${isToday ? "today" : done ? "done" : ""}"></span>`;
+    }).join("");
+  }
+}
+
+function renderWeekMetric(dailyMap) {
+  const last7 = lastNDates(7);
+  const minutesPerDay = last7.map((date) => dailyMap.get(toDateKey(date))?.minutes || 0);
+  const totalMinutes = minutesPerDay.reduce((sum, minutes) => sum + minutes, 0);
+
+  const hoursEl = $("#week-hours");
+  if (hoursEl) hoursEl.innerHTML = `${Math.floor(totalMinutes / 60)}h <small>${totalMinutes % 60}m</small>`;
+
+  const prevTotal = lastNDates(14).slice(0, 7).reduce((sum, date) => sum + (dailyMap.get(toDateKey(date))?.minutes || 0), 0);
+  const changeEl = $("#week-change");
+  if (changeEl) {
+    if (totalMinutes === 0 && prevTotal === 0) {
+      changeEl.textContent = "Comece a registrar suas sessões";
+    } else if (prevTotal === 0) {
+      changeEl.textContent = "Primeira semana registrada";
+    } else {
+      const change = Math.round(((totalMinutes - prevTotal) / prevTotal) * 100);
+      changeEl.textContent = `${change >= 0 ? "+" : ""}${change}% vs. semana passada`;
+    }
+  }
+
+  const barsEl = $("#week-bars");
+  if (barsEl) {
+    const max = Math.max(...minutesPerDay, 1);
+    barsEl.innerHTML = minutesPerDay.map((minutes) => `<span style="height:${Math.max(8, Math.round((minutes / max) * 100))}%"></span>`).join("");
+  }
+}
+
+function renderWeeklyChart(dailyMap) {
+  const columnsEl = $("#weekly-chart-columns");
+  if (!columnsEl) return;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+  const weekDates = Array.from({ length: 7 }, (_, i) => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + i);
+    return date;
+  });
+
+  const minutesPerDay = weekDates.map((date) => dailyMap.get(toDateKey(date))?.minutes || 0);
+  const maxMinutes = Math.max(...minutesPerDay, 60);
+
+  columnsEl.innerHTML = weekDates.map((date, index) => {
+    const minutes = minutesPerDay[index];
+    const isToday = toDateKey(date) === toDateKey(today);
+    const isFuture = date > today;
+    const heightPercent = isFuture ? 0 : Math.max(4, Math.round((minutes / maxMinutes) * 100));
+    return `<span class="${isToday ? "chart-today" : ""}"><i class="${isFuture ? "muted-column" : ""}" style="height:${heightPercent}%"></i><b>${WEEKDAY_LABELS[index]}</b></span>`;
+  }).join("");
+
+  const yAxisEl = $("#chart-y-axis");
+  if (yAxisEl) {
+    const maxHours = Math.max(1, Math.ceil(maxMinutes / 60));
+    yAxisEl.innerHTML = `<span>${maxHours}h</span><span>${Math.round((maxHours / 2) * 10) / 10}h</span><span>0h</span>`;
+  }
+}
+
+function renderProgressView(dailyMap, subjects, streak) {
+  const totalMinutes30 = lastNDates(30).reduce((sum, date) => sum + (dailyMap.get(toDateKey(date))?.minutes || 0), 0);
+  const hoursEl = $("#big-progress-hours");
+  if (hoursEl) hoursEl.innerHTML = `${Math.floor(totalMinutes30 / 60)}<span>h</span> ${totalMinutes30 % 60}<span>min</span>`;
+
+  const largeChartEl = $("#large-chart");
+  if (largeChartEl) {
+    const minutes12 = lastNDates(12).map((date) => dailyMap.get(toDateKey(date))?.minutes || 0);
+    const max = Math.max(...minutes12, 1);
+    largeChartEl.innerHTML = minutes12.map((minutes) => `<span style="height:${Math.max(4, Math.round((minutes / max) * 100))}%"></span>`).join("");
+  }
+
+  const subjectListEl = $("#subject-progress-list");
+  if (subjectListEl) {
+    if (!subjects.length) {
+      subjectListEl.innerHTML = `<p class="empty-state-text">Ainda sem sessões suficientes para calcular seu domínio por matéria. Conclua algumas sessões para ver esse gráfico.</p>`;
+    } else {
+      const dotClasses = ["math-color", "portuguese-color", "bio-color", "history-color", "physics-color", "chemistry-color"];
+      subjectListEl.innerHTML = subjects.map((subject, index) => {
+        const total = Number(subject.total);
+        const completed = Number(subject.completed);
+        const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+        const colorClass = dotClasses[index % dotClasses.length];
+        return `<div class="subject-progress-row"><span class="subject-dot ${colorClass}"></span><b>${subject.subject}</b><span class="progress-mini-track"><i class="${colorClass}" style="width:${percent}%"></i></span><strong>${percent}%</strong></div>`;
+      }).join("");
+    }
+  }
+
+  const titleEl = $("#achievement-title");
+  const textEl = $("#achievement-text");
+  if (titleEl && textEl) {
+    if (streak.current >= 7) {
+      titleEl.textContent = "Semana consistente";
+      textEl.textContent = `Você estudou em ${streak.current} dias seguidos. É assim que uma rotina começa.`;
+    } else if (streak.current > 0) {
+      titleEl.textContent = "Sequência em construção";
+      textEl.textContent = `${streak.current} ${streak.current === 1 ? "dia seguido" : "dias seguidos"} até agora. Continue firme!`;
+    } else {
+      titleEl.textContent = "Comece sua sequência";
+      textEl.textContent = "Conclua uma sessão de estudo hoje para começar sua sequência.";
+    }
+  }
+}
+
+function applyDashboardData(data) {
+  state.sessions = data.today.map((row) => ({
+    id: row.id,
+    time: row.session_time,
+    subject: row.subject,
+    detail: row.detail,
+    duration: `${row.duration_minutes} min`,
+    tag: row.tag,
+    tagClass: tagClassFor(row.tag),
+    completed: row.completed
+  }));
+
+  const dailyMap = buildDailyMap(data.daily);
+  const streak = computeStreak(dailyMap);
+
+  renderSchedule();
+  renderStreakCard(dailyMap, streak);
+  renderWeekMetric(dailyMap);
+  renderWeeklyChart(dailyMap);
+  renderProgressView(dailyMap, data.subjects, streak);
+}
+
+async function fetchDashboard() {
+  try {
+    const response = await fetch(`${API_BASE}/api/dashboard`, { credentials: "include" });
+    if (!response.ok) return;
+    const data = await response.json();
+    applyDashboardData(data);
+  } catch (error) {
+    // Mantém os últimos dados renderizados se o servidor ficar indisponível.
+  }
 }
 
 function enterDashboard() {
   setUserLabels();
-  renderSchedule();
   renderWeekPlan();
   showScreen("dashboard-screen");
   switchView("overview");
+  fetchDashboard();
 }
 
 function goToOnboarding() {
@@ -296,15 +526,22 @@ document.addEventListener("click", async (event) => {
     if (action === "upgrade") showToast("O plano Plus estará disponível em breve.");
     if (action === "regenerate") {
       showToast("Seu plano foi reorganizado com base no seu ritmo.");
-      state.sessions = state.sessions.map((session, index) => ({ ...session, completed: index < 1 }));
-      renderSchedule();
       renderWeekPlan();
     }
     if (action === "add-session") {
-      const nextId = Math.max(...state.sessions.map((session) => session.id), 0) + 1;
-      state.sessions.push({ id: nextId, time: "21:00", subject: "Revisão livre", detail: "Consolide o que aprendeu hoje", duration: "20 min", tag: "Extra", tagClass: "tag-mint", completed: false });
-      renderSchedule();
-      showToast("Sessão extra adicionada ao seu dia.");
+      try {
+        const response = await fetch(`${API_BASE}/api/sessions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ subject: "Revisão livre", detail: "Consolide o que aprendeu hoje", time: "21:00", duration: 20, tag: "Extra" })
+        });
+        if (!response.ok) throw new Error("create failed");
+        await fetchDashboard();
+        showToast("Sessão extra adicionada ao seu dia.");
+      } catch (error) {
+        showToast("Não foi possível adicionar a sessão agora.");
+      }
     }
     if (action === "toggle-sidebar") $(".sidebar").classList.toggle("sidebar-open");
     if (action === "logout") {
@@ -324,11 +561,15 @@ document.addEventListener("click", async (event) => {
 
   const session = event.target.closest(".schedule-item");
   if (session && event.target.closest(".schedule-check")) {
-    const sessionData = state.sessions.find((item) => item.id === Number(session.dataset.sessionId));
-    if (sessionData) {
-      sessionData.completed = !sessionData.completed;
-      renderSchedule();
-      showToast(sessionData.completed ? "Boa! Sessão concluída." : "Sessão reaberta para você retomar.");
+    const sessionId = Number(session.dataset.sessionId);
+    try {
+      const response = await fetch(`${API_BASE}/api/sessions/${sessionId}/toggle`, { method: "POST", credentials: "include" });
+      if (!response.ok) throw new Error("toggle failed");
+      const updated = await response.json();
+      await fetchDashboard();
+      showToast(updated.completed ? "Boa! Sessão concluída." : "Sessão reaberta para você retomar.");
+    } catch (error) {
+      showToast("Não foi possível atualizar a sessão agora.");
     }
   }
 
@@ -362,11 +603,6 @@ $("#chat-form").addEventListener("submit", (event) => {
   submitTutor(input.value);
   input.value = "";
 });
-
-// Inicializa a tela de demonstração com dados prontos para explorar.
-setUserLabels();
-renderSchedule();
-renderWeekPlan();
 
 async function restoreSession() {
   try {
