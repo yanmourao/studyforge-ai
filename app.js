@@ -27,11 +27,74 @@ function showScreen(screenId) {
 }
 
 function updateOnboardingProgress() {
-  $$(".progress-step").forEach((step, index) => {
+  const onboardingScreen = $("#onboarding-screen");
+  $$(".progress-step", onboardingScreen).forEach((step, index) => {
     step.classList.toggle("active", index + 1 <= state.step);
   });
+  $$(".form-step", onboardingScreen).forEach((step) => {
     step.classList.toggle("active", Number(step.dataset.step) === state.step);
   });
+}
+
+async function registerUser() {
+  const name = $("#user-name").value.trim();
+  const email = $("#user-email").value.trim();
+  const password = $("#user-password").value;
+
+  if (!name) {
+    showToast("Digite seu nome para continuar.");
+    $("#user-name").focus();
+    return false;
+  }
+  if (!email) {
+    showToast("Digite seu e-mail para continuar.");
+    $("#user-email").focus();
+    return false;
+  }
+  if (password.length < 6) {
+    showToast("Sua senha precisa ter pelo menos 6 caracteres.");
+    $("#user-password").focus();
+    return false;
+  }
+
+  try {
+    const response = await fetch("/api/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, password })
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      showToast(data.error || "Não foi possível concluir seu cadastro.");
+      return false;
+    }
+    state.user.id = data.id;
+    return true;
+  } catch (error) {
+    showToast("Não foi possível conectar ao servidor.");
+    return false;
+  }
+}
+
+async function loginUser(email, password) {
+  try {
+    const response = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      showToast(data.error || "Não foi possível entrar.");
+      return false;
+    }
+    state.user.id = data.id;
+    state.user.name = data.name;
+    return true;
+  } catch (error) {
+    showToast("Não foi possível conectar ao servidor.");
+    return false;
+  }
 }
 
 function collectFormData() {
@@ -181,7 +244,7 @@ function submitTutor(prompt) {
   setTimeout(() => addChatMessage(tutorReply(cleanPrompt)), 450);
 }
 
-document.addEventListener("click", (event) => {
+document.addEventListener("click", async (event) => {
   const actionTarget = event.target.closest("[data-action]");
   const viewTarget = event.target.closest("[data-view-target]");
   const navTarget = event.target.closest(".side-nav-item[data-view]");
@@ -190,13 +253,16 @@ document.addEventListener("click", (event) => {
 
   if (actionTarget) {
     const action = actionTarget.dataset.action;
-    if (action === "start" || action === "login") goToOnboarding();
+    if (action === "start") goToOnboarding();
+    if (action === "login") goToLogin();
+    if (action === "goto-login") goToLogin();
     if (action === "back-landing") showScreen("landing-screen");
     if (action === "next-step") {
-      if (state.step === 1 && !$("#user-name").value.trim()) {
-        $("#user-name").focus();
-        showToast("Digite seu nome para continuar.");
-        return;
+      if (state.step === 1) {
+        actionTarget.disabled = true;
+        const registered = await registerUser();
+        actionTarget.disabled = false;
+        if (!registered) return;
       }
       state.step = Math.min(3, state.step + 1);
       updateOnboardingProgress();
@@ -232,6 +298,10 @@ document.addEventListener("click", (event) => {
       showToast("Sessão extra adicionada ao seu dia.");
     }
     if (action === "toggle-sidebar") $(".sidebar").classList.toggle("sidebar-open");
+    if (action === "logout") {
+      await fetch("/api/logout", { method: "POST" });
+      window.location.reload();
+    }
   }
 
   if (viewTarget) switchView(viewTarget.dataset.viewTarget);
@@ -259,6 +329,12 @@ document.addEventListener("click", (event) => {
     submitTutor(promptTarget.dataset.prompt);
   }
 });
+
+$("#login-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const submitButton = $("#login-form button[type=submit]");
+  const email = $("#login-email").value.trim();
+  const password = $("#login-password").value;
 
   if (!email || !password) {
     showToast("Preencha e-mail e senha para entrar.");
