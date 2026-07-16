@@ -2,7 +2,7 @@
 // backend hospedado separadamente (Render). Em desenvolvimento local
 // (mesma origem do server.js) usamos caminho relativo.
 const API_BASE = window.location.hostname.endsWith("github.io")
-  ? "https://studyforge-ai.onrender.com"
+  ? "https://studyforge-ai-ccer.onrender.com"
   : "";
 
 const state = {
