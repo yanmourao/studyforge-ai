@@ -16,6 +16,8 @@ const state = {
     objective: "ENEM",
     days: 90,
     hours: 2,
+    studyTimeStart: "08:00",
+    studyTimeEnd: "10:00",
     level: "Intermediário",
     subjects: []
   },
@@ -139,7 +141,7 @@ function setUserLabels() {
   $("#topbar-avatar").textContent = avatar;
   $("#plan-objective").textContent = state.user.objective;
   $("#plan-days").textContent = state.user.days;
-  $("#plan-hours").textContent = `${state.user.hours} ${state.user.hours === 1 ? "hora" : "horas"}`;
+  $("#plan-hours").textContent = `${state.user.studyTimeStart} às ${state.user.studyTimeEnd}`;
   $("#plan-level").textContent = state.user.level.toLowerCase();
   $("#current-date").textContent = formatDate();
   $("#today-panel-date").textContent = formatShortDate();
@@ -180,15 +182,56 @@ function renderSchedule() {
       : `${Math.max(0, total - complete)} sessão${total - complete === 1 ? "" : "ões"} restante${total - complete === 1 ? "" : "s"}`;
 }
 
+const SUBJECT_COLOR_CLASS = {
+  "Matemática": "math-color",
+  "Português": "portuguese-color",
+  "Biologia": "bio-color",
+  "História": "history-color",
+  "Física": "physics-color",
+  "Química": "chemistry-color"
+};
+
+function subjectColorClass(subject) {
+  return SUBJECT_COLOR_CLASS[subject] || "math-color";
+}
+
+function formatMinutes(totalMinutes) {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes}min`;
+  if (minutes === 0) return `${hours}h`;
+  return `${hours}h ${minutes}min`;
+}
+
 function subjectTagClass(subject) {
   const classes = { "Matemática": "", "Português": "mint-session", "Biologia": "lilac-session", "História": "mint-session", "Física": "lilac-session", "Química": "mint-session" };
   return classes[subject] || "";
+}
+
+function addMinutes(time, minutesToAdd) {
+  const [hours, minutes] = time.split(":").map(Number);
+  const totalMinutes = (hours * 60 + minutes + minutesToAdd) % (24 * 60);
+  const hh = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
+  const mm = String(totalMinutes % 60).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+function minutesBetween(start, end) {
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  let diff = (eh * 60 + em) - (sh * 60 + sm);
+  if (diff <= 0) diff += 24 * 60;
+  return diff;
 }
 
 function renderWeekPlan() {
   const list = $("#week-list");
   if (!list) return;
   const subjects = state.user.subjects.length ? state.user.subjects : ["Matemática", "Português"];
+  const startTime = state.user.studyTimeStart || "08:00";
+  const endTime = state.user.studyTimeEnd || "10:00";
+  const windowMinutes = minutesBetween(startTime, endTime);
+  const secondTime = windowMinutes >= 120 ? addMinutes(startTime, Math.floor(windowMinutes / 2)) : null;
   const today = new Date();
   const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
   const weekdayFormatter = new Intl.DateTimeFormat("pt-BR", { weekday: "long" });
@@ -204,8 +247,8 @@ function renderWeekPlan() {
     const first = subjects[dayIndex % subjects.length];
     const second = subjects[(dayIndex + 1) % subjects.length];
     const sessions = [
-      { time: dayIndex === 0 ? "08:00" : "09:00", subject: first, detail: dayIndex % 2 ? "conteúdo novo" : "revisão espaçada", className: subjectTagClass(first) },
-      ...(state.user.hours >= 2 ? [{ time: dayIndex === 0 ? "10:00" : "19:00", subject: second, detail: "questões e prática", className: subjectTagClass(second) }] : [])
+      { time: startTime, subject: first, detail: dayIndex % 2 ? "conteúdo novo" : "revisão espaçada", className: subjectTagClass(first) },
+      ...(secondTime ? [{ time: secondTime, subject: second, detail: "questões e prática", className: subjectTagClass(second) }] : [])
     ];
     return `<article class="week-day ${dayIndex === 0 ? "today" : ""}"><div class="week-day-label"><strong>${label}</strong><span>${dateLabel}</span></div><div class="week-day-sessions">${sessions.map((session) => `<div class="week-session ${session.className}"><span class="time">${session.time}</span><strong>${session.subject}</strong><small>${session.detail}</small></div>`).join("")}</div></article>`;
   }).join("");
@@ -314,8 +357,9 @@ function renderWeekMetric(dailyMap) {
 }
 
 function renderWeeklyChart(dailyMap) {
-  const columnsEl = $("#weekly-chart-columns");
-  if (!columnsEl) return;
+  const chartEl = $("#weekly-line-chart");
+  const labelsEl = $("#weekly-chart-labels");
+  if (!chartEl || !labelsEl) return;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -328,15 +372,38 @@ function renderWeeklyChart(dailyMap) {
   });
 
   const minutesPerDay = weekDates.map((date) => dailyMap.get(toDateKey(date))?.minutes || 0);
-  const maxMinutes = Math.max(...minutesPerDay, 60);
+  const metaMinutes = minutesBetween(state.user.studyTimeStart || "08:00", state.user.studyTimeEnd || "10:00");
+  const maxMinutes = Math.max(...minutesPerDay, metaMinutes, 60);
 
-  columnsEl.innerHTML = weekDates.map((date, index) => {
-    const minutes = minutesPerDay[index];
-    const isToday = toDateKey(date) === toDateKey(today);
-    const isFuture = date > today;
-    const heightPercent = isFuture ? 0 : Math.max(4, Math.round((minutes / maxMinutes) * 100));
-    return `<span class="${isToday ? "chart-today" : ""}"><i class="${isFuture ? "muted-column" : ""}" style="height:${heightPercent}%"></i><b>${WEEKDAY_LABELS[index]}</b></span>`;
-  }).join("");
+  const xAt = (i) => ((i + 0.5) / 7) * 100;
+  const yAt = (minutes) => 98 - (minutes / maxMinutes) * 90;
+
+  // A linha "Estudado" só vai até hoje — dias futuros não viram zero (isso
+  // distorceria o gráfico), ficam sem ponto.
+  const studyPoints = [];
+  weekDates.forEach((date, i) => {
+    if (date > today) return;
+    studyPoints.push({ i, x: xAt(i), y: yAt(minutesPerDay[i]), minutes: minutesPerDay[i], isToday: toDateKey(date) === toDateKey(today) });
+  });
+
+  const studyPath = studyPoints.map((p, idx) => `${idx === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ");
+  const metaY = yAt(metaMinutes).toFixed(2);
+  const metaPath = `M ${xAt(0).toFixed(2)} ${metaY} L ${xAt(6).toFixed(2)} ${metaY}`;
+
+  const svg = `<svg class="line-chart-svg" viewBox="0 0 100 100" preserveAspectRatio="none">` +
+    `<path class="line-meta" vector-effect="non-scaling-stroke" d="${metaPath}" />` +
+    (studyPoints.length > 1 ? `<path class="line-study" vector-effect="non-scaling-stroke" d="${studyPath}" />` : "") +
+    `</svg>`;
+
+  const markers = studyPoints.map((p) =>
+    `<div class="line-marker ${p.isToday ? "today" : ""}" style="left:${p.x.toFixed(2)}%;top:${p.y.toFixed(2)}%" data-min="${p.minutes}" data-label="${WEEKDAY_LABELS[p.i]}"></div>`
+  ).join("");
+
+  chartEl.innerHTML = svg + markers + `<div class="chart-tooltip hidden" id="weekly-chart-tooltip"></div>`;
+
+  labelsEl.innerHTML = weekDates.map((date, i) =>
+    `<span class="${toDateKey(date) === toDateKey(today) ? "today-label" : ""}">${WEEKDAY_LABELS[i]}</span>`
+  ).join("");
 
   const yAxisEl = $("#chart-y-axis");
   if (yAxisEl) {
@@ -362,16 +429,17 @@ function renderProgressView(dailyMap, subjects, streak) {
     if (!subjects.length) {
       subjectListEl.innerHTML = `<p class="empty-state-text">Ainda sem sessões suficientes para calcular seu domínio por matéria. Conclua algumas sessões para ver esse gráfico.</p>`;
     } else {
-      const dotClasses = ["math-color", "portuguese-color", "bio-color", "history-color", "physics-color", "chemistry-color"];
-      subjectListEl.innerHTML = subjects.map((subject, index) => {
+      subjectListEl.innerHTML = subjects.map((subject) => {
         const total = Number(subject.total);
         const completed = Number(subject.completed);
         const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
-        const colorClass = dotClasses[index % dotClasses.length];
+        const colorClass = subjectColorClass(subject.subject);
         return `<div class="subject-progress-row"><span class="subject-dot ${colorClass}"></span><b>${subject.subject}</b><span class="progress-mini-track"><i class="${colorClass}" style="width:${percent}%"></i></span><strong>${percent}%</strong></div>`;
       }).join("");
     }
   }
+
+  renderSubjectHours(subjects);
 
   const titleEl = $("#achievement-title");
   const textEl = $("#achievement-text");
@@ -387,6 +455,27 @@ function renderProgressView(dailyMap, subjects, streak) {
       textEl.textContent = "Conclua uma sessão de estudo hoje para começar sua sequência.";
     }
   }
+}
+
+function renderSubjectHours(subjects) {
+  const listEl = $("#subject-hours-list");
+  if (!listEl) return;
+
+  const minutesBySubject = new Map(subjects.map((row) => [row.subject, Number(row.minutes) || 0]));
+  const chosenSubjects = state.user.subjects.length ? state.user.subjects : subjects.map((row) => row.subject);
+  const rows = chosenSubjects.map((subject) => ({ subject, minutes: minutesBySubject.get(subject) || 0 }));
+
+  if (!rows.length || rows.every((row) => row.minutes === 0)) {
+    listEl.innerHTML = `<p class="empty-state-text">Conclua sessões de estudo nas suas matérias para ver o tempo investido em cada uma.</p>`;
+    return;
+  }
+
+  const max = Math.max(...rows.map((row) => row.minutes), 1);
+  listEl.innerHTML = rows.map((row) => {
+    const percent = Math.round((row.minutes / max) * 100);
+    const colorClass = subjectColorClass(row.subject);
+    return `<div class="subject-hours-row"><span class="subject-dot ${colorClass}"></span><b>${row.subject}</b><span class="progress-mini-track"><i class="${colorClass}" style="width:${percent}%"></i></span><strong>${formatMinutes(row.minutes)}</strong></div>`;
+  }).join("");
 }
 
 function applyDashboardData(data) {
@@ -455,6 +544,94 @@ function switchView(view) {
   const labels = { overview: "Visão geral", plan: "Meu plano", tutor: "Tutor IA", progress: "Meu progresso" };
   $("#breadcrumb-current").textContent = labels[view] || "Visão geral";
   $(".sidebar")?.classList.remove("sidebar-open");
+}
+
+function openPlanModal() {
+  $$("#plan-modal-subjects .subject").forEach((button) => {
+    button.classList.toggle("selected", state.user.subjects.includes(button.dataset.subject));
+  });
+  $("#plan-modal-days").value = state.user.days;
+  $("#plan-modal-time-start").value = state.user.studyTimeStart;
+  $("#plan-modal-time-end").value = state.user.studyTimeEnd;
+  $("#plan-modal").classList.remove("hidden");
+}
+
+function closePlanModal() {
+  $("#plan-modal").classList.add("hidden");
+}
+
+function savePlanFromModal() {
+  const subjects = $$("#plan-modal-subjects .subject.selected").map((button) => button.dataset.subject);
+  if (!subjects.length) {
+    showToast("Escolha pelo menos uma matéria.");
+    return;
+  }
+  state.user.subjects = subjects;
+  state.user.days = Number($("#plan-modal-days").value) || state.user.days;
+  state.user.studyTimeStart = $("#plan-modal-time-start").value || state.user.studyTimeStart;
+  state.user.studyTimeEnd = $("#plan-modal-time-end").value || state.user.studyTimeEnd;
+  closePlanModal();
+  setUserLabels();
+  renderWeekPlan();
+  showToast("Plano atualizado com seu novo foco.");
+}
+
+function applyTheme(theme) {
+  if (theme === "dark") {
+    document.documentElement.setAttribute("data-theme", "dark");
+  } else {
+    document.documentElement.removeAttribute("data-theme");
+  }
+  localStorage.setItem("studyforge-theme", theme);
+}
+
+function openSettingsModal() {
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  $("#dark-mode-toggle").checked = isDark;
+  $("#settings-modal").classList.remove("hidden");
+}
+
+function closeSettingsModal() {
+  $("#settings-modal").classList.add("hidden");
+}
+
+function openLogSessionModal() {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  $("#log-session-time").value = `${hh}:${mm}`;
+  $("#log-session-minutes").value = 30;
+  $("#log-session-modal").classList.remove("hidden");
+}
+
+function closeLogSessionModal() {
+  $("#log-session-modal").classList.add("hidden");
+}
+
+async function submitLogSession() {
+  const subject = $("#log-session-subject").value;
+  const minutes = Number($("#log-session-minutes").value);
+  const time = $("#log-session-time").value || "08:00";
+
+  if (!minutes || minutes <= 0) {
+    showToast("Informe quantos minutos você estudou.");
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/api/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ subject, detail: "Sessão registrada manualmente", time, duration: minutes, tag: "Prática", completed: true })
+    });
+    if (!response.ok) throw new Error("create failed");
+    await fetchDashboard();
+    closeLogSessionModal();
+    showToast(`Sessão registrada: ${formatMinutes(minutes)} de ${subject}.`);
+  } catch (error) {
+    showToast("Não foi possível registrar a sessão agora.");
+  }
 }
 
 async function startCheckout() {
@@ -553,26 +730,15 @@ document.addEventListener("click", async (event) => {
       showToast("Este é o jeito StudyForge de organizar sua rotina.");
     }
     if (action === "upgrade") startCheckout();
-    if (action === "regenerate") {
-      showToast("Seu plano foi reorganizado com base no seu ritmo.");
-      renderWeekPlan();
-    }
-    if (action === "add-session") {
-      try {
-        const response = await fetch(`${API_BASE}/api/sessions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ subject: "Revisão livre", detail: "Consolide o que aprendeu hoje", time: "21:00", duration: 20, tag: "Extra" })
-        });
-        if (!response.ok) throw new Error("create failed");
-        await fetchDashboard();
-        showToast("Sessão extra adicionada ao seu dia.");
-      } catch (error) {
-        showToast("Não foi possível adicionar a sessão agora.");
-      }
-    }
+    if (action === "regenerate") openPlanModal();
+    if (action === "close-plan-modal") closePlanModal();
+    if (action === "save-plan") savePlanFromModal();
+    if (action === "open-log-session") openLogSessionModal();
+    if (action === "close-log-session-modal") closeLogSessionModal();
+    if (action === "save-log-session") await submitLogSession();
     if (action === "toggle-sidebar") $(".sidebar").classList.toggle("sidebar-open");
+    if (action === "open-settings") openSettingsModal();
+    if (action === "close-settings-modal") closeSettingsModal();
     if (action === "logout") {
       await fetch(`${API_BASE}/api/logout`, { method: "POST", credentials: "include" });
       window.location.reload();
@@ -625,6 +791,42 @@ $("#login-form").addEventListener("submit", async (event) => {
   submitButton.disabled = false;
   if (loggedIn) enterDashboard();
 });
+
+$("#plan-modal").addEventListener("click", (event) => {
+  if (event.target.id === "plan-modal") closePlanModal();
+});
+
+$("#log-session-modal").addEventListener("click", (event) => {
+  if (event.target.id === "log-session-modal") closeLogSessionModal();
+});
+
+$("#settings-modal").addEventListener("click", (event) => {
+  if (event.target.id === "settings-modal") closeSettingsModal();
+});
+
+$("#dark-mode-toggle").addEventListener("change", (event) => {
+  applyTheme(event.target.checked ? "dark" : "light");
+});
+
+applyTheme(localStorage.getItem("studyforge-theme") === "dark" ? "dark" : "light");
+
+const weeklyChartEl = $("#weekly-line-chart");
+if (weeklyChartEl) {
+  weeklyChartEl.addEventListener("mouseover", (event) => {
+    const marker = event.target.closest(".line-marker");
+    const tip = $("#weekly-chart-tooltip");
+    if (!marker || !tip) return;
+    tip.textContent = `${marker.dataset.label}: ${formatMinutes(Number(marker.dataset.min))}`;
+    tip.style.left = marker.style.left;
+    tip.style.top = `calc(${marker.style.top} - 12px)`;
+    tip.classList.remove("hidden");
+  });
+  weeklyChartEl.addEventListener("mouseout", (event) => {
+    if (!event.target.closest(".line-marker")) return;
+    const tip = $("#weekly-chart-tooltip");
+    if (tip) tip.classList.add("hidden");
+  });
+}
 
 $("#chat-form").addEventListener("submit", (event) => {
   event.preventDefault();

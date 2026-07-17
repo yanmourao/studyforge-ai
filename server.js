@@ -272,7 +272,8 @@ app.get("/api/dashboard", async (req, res) => {
     );
 
     const subjects = await pool.query(
-      `SELECT subject, COUNT(*) AS total, COUNT(*) FILTER (WHERE completed) AS completed
+      `SELECT subject, COUNT(*) AS total, COUNT(*) FILTER (WHERE completed) AS completed,
+              COALESCE(SUM(duration_minutes) FILTER (WHERE completed), 0) AS minutes
        FROM study_sessions
        WHERE user_id = $1
        GROUP BY subject
@@ -298,6 +299,7 @@ app.post("/api/sessions", async (req, res) => {
   const time = (req.body.time || "08:00").trim();
   const duration = Number(req.body.duration) || 30;
   const tag = (req.body.tag || "Prática").trim();
+  const completed = Boolean(req.body.completed);
 
   if (!subject) {
     return res.status(400).json({ error: "Informe a matéria da sessão." });
@@ -305,10 +307,10 @@ app.post("/api/sessions", async (req, res) => {
 
   try {
     const result = await pool.query(
-      `INSERT INTO study_sessions (user_id, subject, detail, session_time, duration_minutes, tag)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO study_sessions (user_id, subject, detail, session_time, duration_minutes, tag, completed)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, subject, detail, session_time, duration_minutes, tag, completed`,
-      [userId, subject, detail, time, duration, tag]
+      [userId, subject, detail, time, duration, tag, completed]
     );
     res.status(201).json(result.rows[0]);
   } catch (error) {
