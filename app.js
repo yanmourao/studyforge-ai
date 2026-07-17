@@ -12,6 +12,7 @@ const state = {
   currentView: "overview",
   user: {
     name: "Estudante",
+    plan: "free",
     objective: "ENEM",
     days: 90,
     hours: 2,
@@ -75,6 +76,7 @@ async function registerUser() {
       return false;
     }
     state.user.id = data.id;
+    state.user.plan = data.plan || "free";
     return true;
   } catch (error) {
     showToast("Não foi possível conectar ao servidor.");
@@ -97,6 +99,7 @@ async function loginUser(email, password) {
     }
     state.user.id = data.id;
     state.user.name = data.name;
+    state.user.plan = data.plan || "free";
     return true;
   } catch (error) {
     showToast("Não foi possível conectar ao servidor.");
@@ -140,6 +143,13 @@ function setUserLabels() {
   $("#plan-level").textContent = state.user.level.toLowerCase();
   $("#current-date").textContent = formatDate();
   $("#today-panel-date").textContent = formatShortDate();
+
+  const isPlus = state.user.plan === "plus";
+  const planLabelEl = $("#sidebar-plan-label");
+  if (planLabelEl) planLabelEl.textContent = isPlus ? "Plano Plus" : "Plano gratuito";
+  const badgeEl = $("#tutor-badge");
+  if (badgeEl) badgeEl.textContent = isPlus ? "novo" : "plus";
+  $("#upgrade-card")?.classList.toggle("hidden", isPlus);
 }
 
 function renderSchedule() {
@@ -434,12 +444,31 @@ function goToLogin() {
 }
 
 function switchView(view) {
+  if (view === "tutor" && state.user.plan !== "plus") {
+    showToast("O Tutor IA é exclusivo do StudyForge Plus. Assine para desbloquear.");
+    $(".sidebar")?.classList.remove("sidebar-open");
+    return;
+  }
   state.currentView = view;
   $$("[data-view-panel]").forEach((panel) => panel.classList.toggle("active-view", panel.dataset.viewPanel === view));
   $$(".side-nav-item[data-view]").forEach((item) => item.classList.toggle("active", item.dataset.view === view));
   const labels = { overview: "Visão geral", plan: "Meu plano", tutor: "Tutor IA", progress: "Meu progresso" };
   $("#breadcrumb-current").textContent = labels[view] || "Visão geral";
   $(".sidebar")?.classList.remove("sidebar-open");
+}
+
+async function startCheckout() {
+  try {
+    const response = await fetch(`${API_BASE}/api/billing/checkout`, { method: "POST", credentials: "include" });
+    const data = await response.json();
+    if (!response.ok) {
+      showToast(data.error || "Não foi possível iniciar o pagamento.");
+      return;
+    }
+    window.location.href = data.url;
+  } catch (error) {
+    showToast("Não foi possível conectar ao servidor.");
+  }
 }
 
 let toastTimer;
@@ -523,7 +552,7 @@ document.addEventListener("click", async (event) => {
       $("#features").scrollIntoView({ behavior: "smooth" });
       showToast("Este é o jeito StudyForge de organizar sua rotina.");
     }
-    if (action === "upgrade") showToast("O plano Plus estará disponível em breve.");
+    if (action === "upgrade") startCheckout();
     if (action === "regenerate") {
       showToast("Seu plano foi reorganizado com base no seu ritmo.");
       renderWeekPlan();
@@ -611,10 +640,26 @@ async function restoreSession() {
     const data = await response.json();
     state.user.id = data.id;
     state.user.name = data.name;
+    state.user.plan = data.plan || "free";
     enterDashboard();
+    handleCheckoutRedirect();
   } catch (error) {
     // Sem conexão com o servidor: permanece na landing page.
   }
+}
+
+function handleCheckoutRedirect() {
+  const params = new URLSearchParams(window.location.search);
+  const checkout = params.get("checkout");
+  if (!checkout) return;
+  if (checkout === "success") {
+    showToast(state.user.plan === "plus" ? "Assinatura confirmada! Bem-vindo ao StudyForge Plus." : "Pagamento recebido, confirmando sua assinatura...");
+  } else if (checkout === "cancelled") {
+    showToast("Assinatura não concluída.");
+  }
+  params.delete("checkout");
+  const newUrl = `${window.location.pathname}${params.toString() ? `?${params}` : ""}`;
+  window.history.replaceState({}, "", newUrl);
 }
 
 restoreSession();

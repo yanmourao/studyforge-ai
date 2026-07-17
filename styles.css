@@ -21,6 +21,7 @@
 }
 
 * { box-sizing: border-box; }
+.hidden { display: none !important; }
 html { scroll-behavior: smooth; }
 body { margin: 0; color: var(--ink); background: var(--canvas); font-family: "DM Sans", sans-serif; -webkit-font-smoothing: antialiased; }
 button, input, select { font: inherit; }

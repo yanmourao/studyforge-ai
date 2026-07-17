@@ -3,6 +3,7 @@ const path = require("path");
 const crypto = require("crypto");
 const express = require("express");
 const bcrypt = require("bcryptjs");
+const Stripe = require("stripe");
 const pool = require("./db");
 
 const SESSION_SECRET = process.env.SESSION_SECRET;
@@ -12,6 +13,9 @@ const IS_PROD = process.env.NODE_ENV === "production";
 // Origem do front-end hospedado (GitHub Pages). Em dev local, qualquer
 // origem sem header (mesma origem) já funciona sem CORS.
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "https://yanmourao.github.io";
+const FRONTEND_URL = IS_PROD ? ALLOWED_ORIGIN : `http://localhost:${process.env.PORT || 3001}`;
+const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID;
+const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
 function sign(value) {
   return crypto.createHmac("sha256", SESSION_SECRET).update(value).digest("base64url");
@@ -81,6 +85,50 @@ app.use((req, res, next) => {
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
+
+// Precisa do corpo bruto (não JSON) para validar a assinatura do Stripe,
+// então essa rota é registrada antes do express.json() global.
+app.post("/api/billing/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+  if (!stripe || !process.env.STRIPE_WEBHOOK_SECRET) {
+    return res.status(503).send("Stripe não configurado.");
+  }
+
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, req.headers["stripe-signature"], process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (error) {
+    console.error("Assinatura de webhook inválida:", error.message);
+    return res.status(400).send(`Webhook Error: ${error.message}`);
+  }
+
+  try {
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object;
+        await pool.query(
+          "UPDATE users SET plan = 'plus', stripe_customer_id = $1, stripe_subscription_id = $2 WHERE id = $3",
+          [session.customer, session.subscription, session.client_reference_id]
+        );
+        break;
+      }
+      case "customer.subscription.updated":
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object;
+        const isActive = subscription.status === "active" || subscription.status === "trialing";
+        await pool.query(
+          "UPDATE users SET plan = $1 WHERE stripe_subscription_id = $2",
+          [isActive ? "plus" : "free", subscription.id]
+        );
+        break;
+      }
+    }
+    res.json({ received: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Erro ao processar webhook.");
+  }
+});
+
 app.use(express.json());
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
 app.get("/app.js", (req, res) => res.sendFile(path.join(__dirname, "app.js")));
@@ -122,7 +170,7 @@ app.post("/api/login", async (req, res) => {
 
   try {
     const result = await pool.query(
-      "SELECT id, name, email, password_hash FROM users WHERE email = $1",
+      "SELECT id, name, email, password_hash, plan FROM users WHERE email = $1",
       [email]
     );
     const user = result.rows[0];
@@ -133,7 +181,7 @@ app.post("/api/login", async (req, res) => {
     }
 
     setSessionCookie(res, user.id);
-    res.json({ id: user.id, name: user.name, email: user.email });
+    res.json({ id: user.id, name: user.name, email: user.email, plan: user.plan });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Erro ao entrar na conta." });
@@ -147,7 +195,7 @@ app.get("/api/me", async (req, res) => {
   }
 
   try {
-    const result = await pool.query("SELECT id, name, email FROM users WHERE id = $1", [userId]);
+    const result = await pool.query("SELECT id, name, email, plan FROM users WHERE id = $1", [userId]);
     const user = result.rows[0];
     if (!user) {
       return res.status(401).json({ error: "Não autenticado." });
@@ -162,6 +210,40 @@ app.get("/api/me", async (req, res) => {
 app.post("/api/logout", (req, res) => {
   clearSessionCookie(res);
   res.status(204).end();
+});
+
+app.post("/api/billing/checkout", async (req, res) => {
+  const userId = getAuthenticatedUserId(req);
+  if (!userId) {
+    return res.status(401).json({ error: "Não autenticado." });
+  }
+  if (!stripe || !STRIPE_PRICE_ID) {
+    return res.status(503).json({ error: "Pagamentos ainda não configurados." });
+  }
+
+  try {
+    const result = await pool.query("SELECT id, email, stripe_customer_id FROM users WHERE id = $1", [userId]);
+    const user = result.rows[0];
+    if (!user) {
+      return res.status(401).json({ error: "Não autenticado." });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      customer: user.stripe_customer_id || undefined,
+      customer_email: user.stripe_customer_id ? undefined : user.email,
+      client_reference_id: String(user.id),
+      line_items: [{ price: STRIPE_PRICE_ID, quantity: 1 }],
+      subscription_data: { trial_period_days: 7 },
+      success_url: `${FRONTEND_URL}/?checkout=success`,
+      cancel_url: `${FRONTEND_URL}/?checkout=cancelled`
+    });
+
+    res.json({ url: session.url });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Erro ao iniciar o pagamento." });
+  }
 });
 
 app.get("/api/dashboard", async (req, res) => {
