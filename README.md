@@ -8,10 +8,16 @@ O cadastro (passo 1 do onboarding) grava nome, e-mail e senha em uma tabela `use
 
 ```bash
 npm install
-node server.js
+node server.js   # ou: npm start
 ```
 
 Depois acesse `http://localhost:3001` (porta configurável em `.env`).
+
+> **O servidor precisa estar rodando.** Se `http://localhost:3001` mostrar
+> `ERR_CONNECTION_REFUSED` / "recusou estabelecer ligação", é porque o processo
+> Node não está ativo (fechou o terminal, reiniciou o PC, etc.). Basta rodar
+> `node server.js` de novo na pasta do projeto e recarregar a página. O
+> processo fica ativo enquanto o terminal estiver aberto — feche-o com `Ctrl+C`.
 
 As credenciais do banco ficam em `.env` (não versionado):
 
