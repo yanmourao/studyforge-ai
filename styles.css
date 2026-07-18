@@ -191,6 +191,10 @@ a { color: inherit; text-decoration: none; }
 .syllabus-subject-foot { align-items: center; display: flex; justify-content: space-between; }
 .syllabus-subject-foot > span { color: var(--muted); font: 600 10px "Space Grotesk"; }
 .plan-note { color: var(--ink-soft); font-size: 11px; line-height: 1.5; margin: -8px 0 18px; }
+.week-session.break-session { background: #fafaf9; border-left-color: #d3d2cf; border-left-style: dashed; }
+.week-session.break-session strong { color: var(--muted); }
+.week-session.break-session small { color: #b7b6b3; }
+[data-theme="dark"] .week-session.break-session { background: #202127; border-left-color: #3a3b42; }
 .syllabus-add-topic { display: flex; gap: 8px; margin-top: 12px; }
 .syllabus-add-topic input { background: #fbfbfa; border: 1px solid #e3e3e0; border-radius: 8px; color: var(--ink); flex: 1; font-size: 12px; outline: 0; padding: 11px 13px; }
 .syllabus-add-topic input:focus { border-color: var(--coral); box-shadow: 0 0 0 3px var(--coral-pale); }

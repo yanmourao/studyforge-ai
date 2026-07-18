@@ -345,8 +345,8 @@ function renderWeekPlan() {
   const subjects = state.user.subjects.length ? state.user.subjects : ["Matemática", "Português"];
   const startTime = state.user.studyTimeStart || "08:00";
   const endTime = state.user.studyTimeEnd || "10:00";
-  const windowMinutes = minutesBetween(startTime, endTime);
-  const secondTime = windowMinutes >= 120 ? addMinutes(startTime, Math.floor(windowMinutes / 2)) : null;
+  // Limita a 12h para não gerar um plano absurdo caso os horários fiquem iguais.
+  const windowMinutes = Math.min(minutesBetween(startTime, endTime), 720);
   const today = new Date();
   const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
   const weekdayFormatter = new Intl.DateTimeFormat("pt-BR", { weekday: "long" });
@@ -366,6 +366,21 @@ function renderWeekPlan() {
     return { time, subject, detail, className: subjectTagClass(subject) };
   };
 
+  // Preenche toda a janela livre com blocos de estudo (~1h cada). Se o tempo
+  // livre passar de 3 horas, reserva 1 hora de descanso no meio do dia.
+  const SLOT_MINUTES = 60;
+  const breakMinutes = windowMinutes > 180 ? 60 : 0;
+  const studyMinutes = Math.max(SLOT_MINUTES, windowMinutes - breakMinutes);
+  const studyBlocks = [];
+  for (let remaining = studyMinutes; remaining > 0; remaining -= Math.min(SLOT_MINUTES, remaining)) {
+    studyBlocks.push(Math.min(SLOT_MINUTES, remaining));
+  }
+  // Evita um último bloco curto demais juntando-o ao anterior.
+  if (studyBlocks.length > 1 && studyBlocks[studyBlocks.length - 1] < 20) {
+    studyBlocks[studyBlocks.length - 2] += studyBlocks.pop();
+  }
+  const breakAfter = breakMinutes ? Math.floor(studyBlocks.length / 2) : -1;
+
   let hasEmenta = false;
   const html = Array.from({ length: 5 }, (_, dayIndex) => {
     const date = new Date(today);
@@ -376,14 +391,25 @@ function renderWeekPlan() {
         ? "Amanhã"
         : weekdayFormatter.format(date).replace(/^\p{L}/u, (letter) => letter.toUpperCase());
     const dateLabel = dateFormatter.format(date).replace(".", "");
-    const first = subjects[dayIndex % subjects.length];
-    const second = subjects[(dayIndex + 1) % subjects.length];
-    if ((queues[first] || []).length) hasEmenta = true;
-    const sessions = [
-      nextSession(first, startTime, dayIndex % 2 ? "conteúdo novo" : "revisão espaçada"),
-      ...(secondTime ? [nextSession(second, secondTime, "questões e prática")] : [])
-    ];
-    return `<article class="week-day ${dayIndex === 0 ? "today" : ""}"><div class="week-day-label"><strong>${label}</strong><span>${dateLabel}</span></div><div class="week-day-sessions">${sessions.map((session) => `<div class="week-session ${session.className}"><span class="time">${session.time}</span><strong>${session.subject}</strong><small>${session.detail}</small></div>`).join("")}</div></article>`;
+
+    let cursor = startTime;
+    const items = [];
+    studyBlocks.forEach((duration, slotIndex) => {
+      const subject = subjects[(dayIndex + slotIndex) % subjects.length];
+      if ((queues[subject] || []).length) hasEmenta = true;
+      items.push({ ...nextSession(subject, cursor, slotIndex === 0 ? "conteúdo novo" : "questões e prática"), duration });
+      cursor = addMinutes(cursor, duration);
+      if (slotIndex + 1 === breakAfter) {
+        items.push({ type: "break", time: cursor });
+        cursor = addMinutes(cursor, breakMinutes);
+      }
+    });
+
+    const rows = items.map((item) => item.type === "break"
+      ? `<div class="week-session break-session"><span class="time">${item.time}</span><strong>Descanso</strong><small>1h para recarregar</small></div>`
+      : `<div class="week-session ${item.className}"><span class="time">${item.time}</span><strong>${item.subject}</strong><small>${item.detail}</small></div>`
+    ).join("");
+    return `<article class="week-day ${dayIndex === 0 ? "today" : ""}"><div class="week-day-label"><strong>${label}</strong><span>${dateLabel}</span></div><div class="week-day-sessions">${rows}</div></article>`;
   }).join("");
 
   list.innerHTML = html;
