@@ -67,6 +67,12 @@ a { color: inherit; text-decoration: none; }
 
 /* Landing */
 .landing-screen { overflow: hidden; background: linear-gradient(115deg, #f9fafb 0%, #f8f9fa 57%, #f1f7f4 100%); }
+/* A landing tem fundo claro fixo, então força a paleta clara mesmo no modo
+   escuro — senão o texto (que usa --ink) fica claro sobre fundo claro. */
+[data-theme="dark"] .landing-screen {
+  --ink: #202022; --ink-soft: #64646a; --muted: #96959d; --line: #e8e7e4;
+  --surface: #ffffff; --coral-pale: #fff0ed; --mint-pale: #e7f6ef; --lilac-pale: #f1effd;
+}
 .landing-nav { align-items: center; display: flex; height: 86px; justify-content: space-between; }
 .landing-links { display: flex; gap: 34px; margin-left: 96px; }
 .landing-links a { color: var(--ink-soft); font-size: 13px; transition: color .2s ease; }
