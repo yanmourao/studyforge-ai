@@ -1063,6 +1063,15 @@ document.addEventListener("click", async (event) => {
     if (action === "add-syllabus-topic") addSyllabusTopic();
     if (action === "close-syllabus-modal") closeSyllabusModal();
     if (action === "save-syllabus") await saveSyllabus();
+    if (action === "toggle-password") {
+      const input = actionTarget.parentElement.querySelector("input");
+      if (input) {
+        const reveal = input.type === "password";
+        input.type = reveal ? "text" : "password";
+        actionTarget.textContent = reveal ? "ocultar" : "mostrar";
+        actionTarget.setAttribute("aria-label", reveal ? "Ocultar senha" : "Mostrar senha");
+      }
+    }
     if (action === "open-log-session") openLogSessionModal();
     if (action === "close-log-session-modal") closeLogSessionModal();
     if (action === "save-log-session") await submitLogSession();
