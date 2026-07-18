@@ -10,12 +10,34 @@ const SESSION_SECRET = process.env.SESSION_SECRET;
 const SESSION_COOKIE = "sf_session";
 const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const IS_PROD = process.env.NODE_ENV === "production";
-// Origem do front-end hospedado (GitHub Pages). Em dev local, qualquer
-// origem sem header (mesma origem) já funciona sem CORS.
+const PORT = process.env.PORT || 3001;
+
+// Sem SESSION_SECRET não é possível assinar cookies com segurança: aborta o
+// boot em vez de rodar com sessões forjáveis.
+if (!SESSION_SECRET || SESSION_SECRET.length < 16) {
+  console.error("SESSION_SECRET ausente ou curto demais. Defina uma string aleatória longa no .env.");
+  process.exit(1);
+}
+
+// Lista branca de origens permitidas para CORS. Aceita várias origens
+// separadas por vírgula em ALLOWED_ORIGINS; nunca usamos "*" com credenciais.
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || "https://yanmourao.github.io";
-const FRONTEND_URL = IS_PROD ? ALLOWED_ORIGIN : `http://localhost:${process.env.PORT || 3001}`;
+const ALLOWED_ORIGINS = new Set(
+  (process.env.ALLOWED_ORIGINS || ALLOWED_ORIGIN)
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+);
+if (!IS_PROD) ALLOWED_ORIGINS.add(`http://localhost:${PORT}`);
+
+const FRONTEND_URL = IS_PROD ? ALLOWED_ORIGIN : `http://localhost:${PORT}`;
 const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID;
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
+const TURNSTILE_SECRET = process.env.TURNSTILE_SECRET;
+
+// Hash bcrypt fixo de um valor arbitrário. Usado para gastar o mesmo tempo de
+// verificação quando o e-mail não existe, evitando enumeração por timing.
+const DUMMY_PASSWORD_HASH = "$2b$10$UnO9bQFYZtCe7zbp82yzT.g9sPGzgiqTiHBB3gUv10Bdj/jH2fUFG";
 
 function sign(value) {
   return crypto.createHmac("sha256", SESSION_SECRET).update(value).digest("base64url");
@@ -76,13 +98,85 @@ function clearSessionCookie(res) {
   res.setHeader("Set-Cookie", `${SESSION_COOKIE}=; ${attrs}`);
 }
 
+// --- Rate limiting (em memória, sem dependências) ---------------------------
+// Suficiente para uma instância única (Render free). Para múltiplas réplicas,
+// troque o Map por um store compartilhado (ex: Redis / express-rate-limit).
+function createRateLimiter({ windowMs, max, message }) {
+  const hits = new Map();
+  // Limpeza periódica das janelas expiradas para não vazar memória.
+  const sweep = setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of hits) if (entry.resetAt <= now) hits.delete(key);
+  }, windowMs);
+  if (typeof sweep.unref === "function") sweep.unref();
+
+  return (req, res, next) => {
+    const now = Date.now();
+    const key = req.ip || req.socket.remoteAddress || "unknown";
+    let entry = hits.get(key);
+    if (!entry || entry.resetAt <= now) {
+      entry = { count: 0, resetAt: now + windowMs };
+      hits.set(key, entry);
+    }
+    entry.count += 1;
+    if (entry.count > max) {
+      res.setHeader("Retry-After", String(Math.ceil((entry.resetAt - now) / 1000)));
+      return res.status(429).json({ error: message });
+    }
+    next();
+  };
+}
+
+const loginLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 10, message: "Muitas tentativas. Tente novamente em alguns minutos." });
+const signupLimiter = createRateLimiter({ windowMs: 60 * 60 * 1000, max: 8, message: "Muitos cadastros a partir deste dispositivo. Tente mais tarde." });
+const checkoutLimiter = createRateLimiter({ windowMs: 60 * 60 * 1000, max: 20, message: "Muitas tentativas de pagamento. Aguarde um instante." });
+
+// --- Proteção anti-robô (Cloudflare Turnstile) ------------------------------
+// No-op se TURNSTILE_SECRET não estiver configurado, para não travar o dev.
+// No front, adicione o widget e envie o token no corpo como `turnstileToken`.
+async function verifyTurnstile(req, res, next) {
+  if (!TURNSTILE_SECRET) return next();
+  const token = req.body && req.body.turnstileToken;
+  if (!token || typeof token !== "string") {
+    return res.status(400).json({ error: "Verificação de segurança ausente." });
+  }
+  try {
+    const params = new URLSearchParams();
+    params.append("secret", TURNSTILE_SECRET);
+    params.append("response", token);
+    if (req.ip) params.append("remoteip", req.ip);
+    const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body: params });
+    const data = await response.json();
+    if (!data.success) return res.status(403).json({ error: "Verificação de segurança falhou." });
+    next();
+  } catch (error) {
+    console.error("Erro ao validar Turnstile:", error.message);
+    res.status(503).json({ error: "Não foi possível validar a verificação de segurança." });
+  }
+}
+
+// --- Validação de entrada ----------------------------------------------------
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const isNonEmptyString = (value, max) => typeof value === "string" && value.trim().length > 0 && value.trim().length <= max;
+const isValidEmail = (value) => typeof value === "string" && value.length <= 254 && EMAIL_RE.test(value);
+const isPositiveInt = (value) => Number.isInteger(value) && value > 0;
+
 const app = express();
+if (IS_PROD) app.set("trust proxy", 1);
+
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", ALLOWED_ORIGIN);
-  res.setHeader("Access-Control-Allow-Credentials", "true");
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Vary", "Origin");
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.sendStatus(204);
+  // Preflight de origem não permitida é barrado (sem header ACAO o browser bloqueia).
+  if (req.method === "OPTIONS") {
+    return origin && !ALLOWED_ORIGINS.has(origin) ? res.sendStatus(403) : res.sendStatus(204);
+  }
   next();
 });
 
@@ -129,18 +223,24 @@ app.post("/api/billing/webhook", express.raw({ type: "application/json" }), asyn
   }
 });
 
-app.use(express.json());
+app.use(express.json({ limit: "16kb" }));
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
 app.get("/app.js", (req, res) => res.sendFile(path.join(__dirname, "app.js")));
 app.get("/styles.css", (req, res) => res.sendFile(path.join(__dirname, "styles.css")));
 
-app.post("/api/signup", async (req, res) => {
+app.post("/api/signup", signupLimiter, verifyTurnstile, async (req, res) => {
   const name = (req.body.name || "").trim();
   const email = (req.body.email || "").trim().toLowerCase();
   const password = req.body.password || "";
 
-  if (!name || !email || !password) {
-    return res.status(400).json({ error: "Nome, e-mail e senha são obrigatórios." });
+  if (!isNonEmptyString(name, 255)) {
+    return res.status(400).json({ error: "Informe um nome válido (até 255 caracteres)." });
+  }
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ error: "Informe um e-mail válido." });
+  }
+  if (typeof password !== "string" || password.length < 6 || password.length > 200) {
+    return res.status(400).json({ error: "A senha deve ter entre 6 e 200 caracteres." });
   }
 
   try {
@@ -160,12 +260,13 @@ app.post("/api/signup", async (req, res) => {
   }
 });
 
-app.post("/api/login", async (req, res) => {
+app.post("/api/login", loginLimiter, verifyTurnstile, async (req, res) => {
   const email = (req.body.email || "").trim().toLowerCase();
   const password = req.body.password || "";
 
-  if (!email || !password) {
-    return res.status(400).json({ error: "Informe e-mail e senha." });
+  if (!isValidEmail(email) || typeof password !== "string" || !password || password.length > 200) {
+    // Mensagem genérica também aqui, para não revelar qual campo falhou.
+    return res.status(401).json({ error: "E-mail ou senha inválidos." });
   }
 
   try {
@@ -174,9 +275,11 @@ app.post("/api/login", async (req, res) => {
       [email]
     );
     const user = result.rows[0];
-    const passwordMatches = user && (await bcrypt.compare(password, user.password_hash));
+    // Sempre executa um bcrypt.compare (contra um hash fixo quando o usuário não
+    // existe) para que o tempo de resposta não revele se o e-mail está cadastrado.
+    const passwordMatches = await bcrypt.compare(password, user ? user.password_hash : DUMMY_PASSWORD_HASH);
 
-    if (!passwordMatches) {
+    if (!user || !passwordMatches) {
       return res.status(401).json({ error: "E-mail ou senha inválidos." });
     }
 
@@ -212,7 +315,7 @@ app.post("/api/logout", (req, res) => {
   res.status(204).end();
 });
 
-app.post("/api/billing/checkout", async (req, res) => {
+app.post("/api/billing/checkout", checkoutLimiter, async (req, res) => {
   const userId = getAuthenticatedUserId(req);
   if (!userId) {
     return res.status(401).json({ error: "Não autenticado." });
@@ -301,8 +404,20 @@ app.post("/api/sessions", async (req, res) => {
   const tag = (req.body.tag || "Prática").trim();
   const completed = Boolean(req.body.completed);
 
-  if (!subject) {
-    return res.status(400).json({ error: "Informe a matéria da sessão." });
+  if (!isNonEmptyString(subject, 100)) {
+    return res.status(400).json({ error: "Informe a matéria da sessão (até 100 caracteres)." });
+  }
+  if (detail.length > 255) {
+    return res.status(400).json({ error: "Descrição muito longa." });
+  }
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+    return res.status(400).json({ error: "Horário inválido." });
+  }
+  if (!Number.isInteger(duration) || duration < 1 || duration > 600) {
+    return res.status(400).json({ error: "Duração deve estar entre 1 e 600 minutos." });
+  }
+  if (tag.length > 30) {
+    return res.status(400).json({ error: "Etiqueta inválida." });
   }
 
   try {
@@ -326,6 +441,9 @@ app.post("/api/sessions/:id/toggle", async (req, res) => {
   }
 
   const sessionId = Number(req.params.id);
+  if (!isPositiveInt(sessionId)) {
+    return res.status(400).json({ error: "Identificador de sessão inválido." });
+  }
   try {
     const result = await pool.query(
       `UPDATE study_sessions SET completed = NOT completed
@@ -343,11 +461,90 @@ app.post("/api/sessions/:id/toggle", async (req, res) => {
   }
 });
 
-const port = process.env.PORT || 3000;
+app.get("/api/syllabus", async (req, res) => {
+  const userId = getAuthenticatedUserId(req);
+  if (!userId) {
+    return res.status(401).json({ error: "Não autenticado." });
+  }
+
+  try {
+    const result = await pool.query(
+      "SELECT subject, topic, status FROM syllabus_progress WHERE user_id = $1",
+      [userId]
+    );
+    res.json({ progress: result.rows });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Erro ao carregar sua ementa." });
+  }
+});
+
+app.post("/api/syllabus", async (req, res) => {
+  const userId = getAuthenticatedUserId(req);
+  if (!userId) {
+    return res.status(401).json({ error: "Não autenticado." });
+  }
+
+  const items = Array.isArray(req.body.items) ? req.body.items : [];
+  if (items.length > 200) {
+    return res.status(400).json({ error: "Muitos itens em uma única requisição." });
+  }
+  const allowed = new Set(["unknown", "learning", "mastered"]);
+  const valid = items
+    .map((item) => ({
+      subject: String(item && item.subject || "").trim(),
+      topic: String(item && item.topic || "").trim(),
+      status: String(item && item.status || "unknown").trim()
+    }))
+    .filter((item) =>
+      item.subject && item.subject.length <= 100 &&
+      item.topic && item.topic.length <= 255 &&
+      allowed.has(item.status)
+    );
+
+  if (!valid.length) {
+    return res.status(400).json({ error: "Nenhum item válido para salvar." });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    for (const item of valid) {
+      await client.query(
+        `INSERT INTO syllabus_progress (user_id, subject, topic, status, updated_at)
+         VALUES ($1, $2, $3, $4, NOW())
+         ON CONFLICT (user_id, subject, topic)
+         DO UPDATE SET status = EXCLUDED.status, updated_at = NOW()`,
+        [userId, item.subject, item.topic, item.status]
+      );
+    }
+    await client.query("COMMIT");
+    res.json({ saved: valid.length });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error(error);
+    res.status(500).json({ error: "Erro ao salvar sua ementa." });
+  } finally {
+    client.release();
+  }
+});
+
+// Corpo JSON inválido ou grande demais: responde em JSON, sem vazar stack.
+app.use((error, req, res, next) => {
+  if (error.type === "entity.too.large") {
+    return res.status(413).json({ error: "Requisição muito grande." });
+  }
+  if (error.type === "entity.parse.failed") {
+    return res.status(400).json({ error: "Corpo da requisição inválido." });
+  }
+  console.error(error);
+  res.status(500).json({ error: "Erro interno." });
+});
+
 pool
   .ensureSchema()
   .then(() => {
-    app.listen(port, () => console.log(`StudyForge AI rodando em http://localhost:${port}`));
+    app.listen(PORT, () => console.log(`StudyForge AI rodando em http://localhost:${PORT}`));
   })
   .catch((error) => {
     console.error("Falha ao preparar o banco de dados:", error.message);
