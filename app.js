@@ -37,15 +37,48 @@ const SYLLABUS = {
   "Química": ["Estrutura atômica", "Tabela periódica", "Ligações químicas", "Funções inorgânicas", "Reações químicas", "Estequiometria", "Soluções e concentração", "Termoquímica", "Química orgânica", "Eletroquímica"]
 };
 
+// Ementas que variam por objetivo. A base (SYLLABUS) atende ENEM, Vestibular,
+// Concurso, Faculdade e Outro; SYLLABUS_OVERRIDES ajusta matérias por prova.
+// (Ex.: Matemática do SAT usa os domínios oficiais do College Board.)
+const SYLLABUS_OVERRIDES = {
+  "SAT": {
+    "Matemática": ["Heart of Algebra", "Problem Solving and Data Analysis", "Passport to Advanced Math", "Geometria analítica", "Trigonometria", "Números complexos"]
+  }
+};
+
 const SYLLABUS_STATUS_WEIGHT = { mastered: 1, learning: 0.5, unknown: 0 };
 const SYLLABUS_STATUS_LABEL = { mastered: "Já domino", learning: "Estudando", unknown: "Não sei" };
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+}
 
 function syllabusKey(subject, topic) {
   return `${subject}|||${topic}`;
 }
 
+// Tópicos "oficiais" da matéria para o objetivo atual (com override por prova).
+function baseTopics(subject) {
+  const override = (SYLLABUS_OVERRIDES[state.user.objective] || {})[subject];
+  return override || SYLLABUS[subject] || [];
+}
+
+// Tópicos que o próprio aluno adicionou (existem em state.syllabus mas não na base).
+function customTopics(subject) {
+  const base = new Set(baseTopics(subject));
+  const prefix = `${subject}|||`;
+  return Object.keys(state.syllabus)
+    .filter((key) => key.startsWith(prefix))
+    .map((key) => key.slice(prefix.length))
+    .filter((topic) => !base.has(topic));
+}
+
+function topicsForSubject(subject) {
+  return [...baseTopics(subject), ...customTopics(subject)];
+}
+
 function subjectMastery(subject) {
-  const topics = SYLLABUS[subject] || [];
+  const topics = topicsForSubject(subject);
   if (!topics.length) return { coverage: 0, remaining: 100, counts: { mastered: 0, learning: 0, unknown: 0 } };
   const counts = { mastered: 0, learning: 0, unknown: 0 };
   let score = 0;
@@ -56,6 +89,19 @@ function subjectMastery(subject) {
   });
   const coverage = Math.round((score / topics.length) * 100);
   return { coverage, remaining: 100 - coverage, counts };
+}
+
+// Fila de tópicos priorizada: "Não sei" primeiro, depois "Estudando", por fim
+// os dominados (para revisão espaçada). Alimenta o plano semanal.
+function pendingQueue(subject) {
+  const rank = { unknown: 0, learning: 1, mastered: 2 };
+  return topicsForSubject(subject)
+    .map((topic) => ({ topic, status: state.syllabus[syllabusKey(subject, topic)] || "unknown" }))
+    .sort((a, b) => rank[a.status] - rank[b.status]);
+}
+
+function topicIntent(status) {
+  return status === "mastered" ? "revisão espaçada" : status === "learning" ? "aprofundar conteúdo" : "conteúdo novo";
 }
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -136,6 +182,7 @@ async function loginUser(email, password) {
     state.user.id = data.id;
     state.user.name = data.name;
     state.user.plan = data.plan || "free";
+    applyProfile(data.profile);
     return true;
   } catch (error) {
     showToast("Não foi possível conectar ao servidor.");
@@ -150,6 +197,40 @@ function collectFormData() {
   state.user.hours = Number($("#daily-hours").value) || 2;
   state.user.level = $("#level").value;
   state.user.subjects = $$(".subject.selected").map((subject) => subject.dataset.subject);
+}
+
+// Persiste o perfil de estudo no backend (silencioso: não bloqueia a navegação).
+async function saveProfile() {
+  try {
+    await fetch(`${API_BASE}/api/profile`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        objective: state.user.objective,
+        days: state.user.days,
+        hours: state.user.hours,
+        studyTimeStart: state.user.studyTimeStart,
+        studyTimeEnd: state.user.studyTimeEnd,
+        level: state.user.level,
+        subjects: state.user.subjects
+      })
+    });
+  } catch (error) {
+    // Sem conexão: mantém o perfil só no estado local desta sessão.
+  }
+}
+
+// Aplica o perfil vindo do servidor sobre o estado local (login/restauração).
+function applyProfile(profile) {
+  if (!profile) return;
+  if (profile.objective) state.user.objective = profile.objective;
+  if (profile.days) state.user.days = profile.days;
+  if (profile.hours) state.user.hours = profile.hours;
+  if (profile.studyTimeStart) state.user.studyTimeStart = profile.studyTimeStart;
+  if (profile.studyTimeEnd) state.user.studyTimeEnd = profile.studyTimeEnd;
+  if (profile.level) state.user.level = profile.level;
+  if (Array.isArray(profile.subjects) && profile.subjects.length) state.user.subjects = profile.subjects;
 }
 
 function initials(name) {
@@ -269,7 +350,24 @@ function renderWeekPlan() {
   const today = new Date();
   const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
   const weekdayFormatter = new Intl.DateTimeFormat("pt-BR", { weekday: "long" });
-  list.innerHTML = Array.from({ length: 5 }, (_, dayIndex) => {
+
+  // Fila de tópicos pendentes por matéria e um cursor para não repetir dia a dia.
+  const queues = {};
+  const cursors = {};
+  subjects.forEach((subject) => { queues[subject] = pendingQueue(subject); cursors[subject] = 0; });
+  const nextSession = (subject, time, fallbackDetail) => {
+    const queue = queues[subject] || [];
+    let detail = fallbackDetail;
+    if (queue.length) {
+      const item = queue[cursors[subject] % queue.length];
+      cursors[subject] += 1;
+      detail = `${escapeHtml(item.topic)} · ${topicIntent(item.status)}`;
+    }
+    return { time, subject, detail, className: subjectTagClass(subject) };
+  };
+
+  let hasEmenta = false;
+  const html = Array.from({ length: 5 }, (_, dayIndex) => {
     const date = new Date(today);
     date.setDate(today.getDate() + dayIndex);
     const label = dayIndex === 0
@@ -280,12 +378,22 @@ function renderWeekPlan() {
     const dateLabel = dateFormatter.format(date).replace(".", "");
     const first = subjects[dayIndex % subjects.length];
     const second = subjects[(dayIndex + 1) % subjects.length];
+    if ((queues[first] || []).length) hasEmenta = true;
     const sessions = [
-      { time: startTime, subject: first, detail: dayIndex % 2 ? "conteúdo novo" : "revisão espaçada", className: subjectTagClass(first) },
-      ...(secondTime ? [{ time: secondTime, subject: second, detail: "questões e prática", className: subjectTagClass(second) }] : [])
+      nextSession(first, startTime, dayIndex % 2 ? "conteúdo novo" : "revisão espaçada"),
+      ...(secondTime ? [nextSession(second, secondTime, "questões e prática")] : [])
     ];
     return `<article class="week-day ${dayIndex === 0 ? "today" : ""}"><div class="week-day-label"><strong>${label}</strong><span>${dateLabel}</span></div><div class="week-day-sessions">${sessions.map((session) => `<div class="week-session ${session.className}"><span class="time">${session.time}</span><strong>${session.subject}</strong><small>${session.detail}</small></div>`).join("")}</div></article>`;
   }).join("");
+
+  list.innerHTML = html;
+
+  const noteEl = $("#plan-note");
+  if (noteEl) {
+    noteEl.textContent = hasEmenta
+      ? "✦ Priorizando os tópicos que você marcou como “Não sei” na sua ementa."
+      : "✦ Dica: preencha sua ementa para o plano priorizar o que você ainda não aprendeu.";
+  }
 }
 
 function tagClassFor(tag) {
@@ -565,13 +673,13 @@ function renderSyllabusView() {
   if (tag) tag.innerHTML = `<span>${state.user.objective}</span>`;
 
   const subjects = state.user.subjects.length ? state.user.subjects : Object.keys(SYLLABUS);
-  const knownSubjects = subjects.filter((subject) => SYLLABUS[subject]);
+  const knownSubjects = subjects.filter((subject) => topicsForSubject(subject).length);
 
   const listEl = $("#syllabus-subject-list");
   if (listEl) {
     listEl.innerHTML = knownSubjects.map((subject) => {
       const { coverage, counts } = subjectMastery(subject);
-      const total = (SYLLABUS[subject] || []).length;
+      const total = topicsForSubject(subject).length;
       const colorClass = subjectColorClass(subject);
       return `<article class="panel syllabus-subject" data-syllabus-subject="${subject}">
         <div class="syllabus-subject-head"><span class="subject-dot ${colorClass}"></span><div><strong>${subject}</strong><small>${counts.mastered} de ${total} tópicos dominados</small></div><span class="syllabus-learned-pill">${coverage}% aprendido</span></div>
@@ -603,7 +711,7 @@ function renderSyllabusView() {
 
   const totalLearned = totalTopics ? Math.round((totals.mastered / totalTopics) * 100) : 0;
 
-  const answered = knownSubjects.some((subject) => (SYLLABUS[subject] || []).some((topic) => state.syllabus[syllabusKey(subject, topic)]));
+  const answered = knownSubjects.some((subject) => topicsForSubject(subject).some((topic) => state.syllabus[syllabusKey(subject, topic)]));
   const hintTitle = $("#syllabus-hint-title");
   const hintText = $("#syllabus-hint-text");
   if (hintTitle && hintText) {
@@ -620,21 +728,47 @@ function renderSyllabusView() {
   }
 }
 
+function syllabusRowHtml(subject, topic, current) {
+  const safe = escapeHtml(topic);
+  const options = ["unknown", "learning", "mastered"].map((status) =>
+    `<button class="topic-option ${status} ${current === status ? "selected" : ""}" data-topic-status="${status}">${SYLLABUS_STATUS_LABEL[status]}</button>`
+  ).join("");
+  return `<div class="syllabus-topic-row" data-topic="${safe}" data-status="${current}"><span class="syllabus-topic-name">${safe}</span><div class="topic-options">${options}</div></div>`;
+}
+
 let editingSyllabusSubject = null;
 function openSyllabusModal(subject) {
-  const topics = SYLLABUS[subject];
-  if (!topics) return;
+  const topics = topicsForSubject(subject);
+  if (!topics.length && !SYLLABUS[subject]) return;
   editingSyllabusSubject = subject;
   $("#syllabus-modal-title").textContent = `Ementa de ${subject}`;
-  $("#syllabus-modal-sub").textContent = "Para cada tópico, diga o quanto você já sabe. Isso mostra o que ainda falta.";
-  $("#syllabus-topic-list").innerHTML = topics.map((topic) => {
-    const current = state.syllabus[syllabusKey(subject, topic)] || "unknown";
-    const options = ["unknown", "learning", "mastered"].map((status) =>
-      `<button class="topic-option ${status} ${current === status ? "selected" : ""}" data-topic-status="${status}">${SYLLABUS_STATUS_LABEL[status]}</button>`
-    ).join("");
-    return `<div class="syllabus-topic-row" data-topic="${topic.replace(/"/g, "&quot;")}" data-status="${current}"><span class="syllabus-topic-name">${topic}</span><div class="topic-options">${options}</div></div>`;
-  }).join("");
+  $("#syllabus-modal-sub").textContent = "Marque o quanto você já sabe de cada tópico. Você também pode adicionar tópicos próprios.";
+  $("#syllabus-new-topic").value = "";
+  $("#syllabus-topic-list").innerHTML = topics
+    .map((topic) => syllabusRowHtml(subject, topic, state.syllabus[syllabusKey(subject, topic)] || "unknown"))
+    .join("");
   $("#syllabus-modal").classList.remove("hidden");
+}
+
+function addSyllabusTopic() {
+  const input = $("#syllabus-new-topic");
+  const topic = input.value.trim();
+  if (!topic) return;
+  if (topic.length > 120) {
+    showToast("Tópico muito longo (máximo 120 caracteres).");
+    return;
+  }
+  const listEl = $("#syllabus-topic-list");
+  const exists = $$(".syllabus-topic-row", listEl).some((row) => row.dataset.topic.toLowerCase() === topic.toLowerCase());
+  if (exists) {
+    showToast("Esse tópico já está na ementa.");
+    input.focus();
+    return;
+  }
+  listEl.insertAdjacentHTML("beforeend", syllabusRowHtml(editingSyllabusSubject, topic, "unknown"));
+  input.value = "";
+  input.focus();
+  listEl.lastElementChild.scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
 
 function closeSyllabusModal() {
@@ -664,6 +798,7 @@ async function saveSyllabus() {
     });
     closeSyllabusModal();
     renderSyllabusView();
+    renderWeekPlan();
     const { coverage } = subjectMastery(subject);
     showToast(`Ementa de ${subject} salva. Você já aprendeu ${coverage}%.`);
   } catch (error) {
@@ -733,6 +868,7 @@ function savePlanFromModal() {
   state.user.studyTimeStart = $("#plan-modal-time-start").value || state.user.studyTimeStart;
   state.user.studyTimeEnd = $("#plan-modal-time-end").value || state.user.studyTimeEnd;
   closePlanModal();
+  saveProfile();
   setUserLabels();
   renderWeekPlan();
   renderSyllabusView();
@@ -885,6 +1021,7 @@ document.addEventListener("click", async (event) => {
         showToast("Escolha pelo menos uma matéria.");
         return;
       }
+      saveProfile();
       $(".form-card").classList.add("is-generating");
       setTimeout(enterDashboard, 1900);
     }
@@ -897,6 +1034,7 @@ document.addEventListener("click", async (event) => {
     if (action === "close-plan-modal") closePlanModal();
     if (action === "save-plan") savePlanFromModal();
     if (action === "open-syllabus") openSyllabusModal(actionTarget.dataset.subject);
+    if (action === "add-syllabus-topic") addSyllabusTopic();
     if (action === "close-syllabus-modal") closeSyllabusModal();
     if (action === "save-syllabus") await saveSyllabus();
     if (action === "open-log-session") openLogSessionModal();
@@ -981,6 +1119,13 @@ $("#syllabus-modal").addEventListener("click", (event) => {
   if (event.target.id === "syllabus-modal") closeSyllabusModal();
 });
 
+$("#syllabus-new-topic").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    addSyllabusTopic();
+  }
+});
+
 $("#dark-mode-toggle").addEventListener("change", (event) => {
   applyTheme(event.target.checked ? "dark" : "light");
 });
@@ -1020,6 +1165,7 @@ async function restoreSession() {
     state.user.id = data.id;
     state.user.name = data.name;
     state.user.plan = data.plan || "free";
+    applyProfile(data.profile);
     enterDashboard();
     handleCheckoutRedirect();
   } catch (error) {

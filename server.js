@@ -157,9 +157,26 @@ async function verifyTurnstile(req, res, next) {
 
 // --- Validação de entrada ----------------------------------------------------
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const isNonEmptyString = (value, max) => typeof value === "string" && value.trim().length > 0 && value.trim().length <= max;
 const isValidEmail = (value) => typeof value === "string" && value.length <= 254 && EMAIL_RE.test(value);
 const isPositiveInt = (value) => Number.isInteger(value) && value > 0;
+
+const ALLOWED_OBJECTIVES = new Set(["ENEM", "SAT", "Vestibular", "Concurso", "Faculdade", "Outro"]);
+const ALLOWED_LEVELS = new Set(["Iniciante", "Intermediário", "Avançado"]);
+
+// Converte uma linha da tabela users no formato de perfil usado pelo front.
+function mapProfile(row) {
+  return {
+    objective: row.objective || null,
+    days: row.exam_days || null,
+    hours: row.daily_hours || null,
+    studyTimeStart: row.study_time_start || null,
+    studyTimeEnd: row.study_time_end || null,
+    level: row.level || null,
+    subjects: Array.isArray(row.subjects) ? row.subjects : []
+  };
+}
 
 const app = express();
 if (IS_PROD) app.set("trust proxy", 1);
@@ -271,7 +288,9 @@ app.post("/api/login", loginLimiter, verifyTurnstile, async (req, res) => {
 
   try {
     const result = await pool.query(
-      "SELECT id, name, email, password_hash, plan FROM users WHERE email = $1",
+      `SELECT id, name, email, password_hash, plan, objective, exam_days, daily_hours,
+              study_time_start, study_time_end, level, subjects
+       FROM users WHERE email = $1`,
       [email]
     );
     const user = result.rows[0];
@@ -284,7 +303,7 @@ app.post("/api/login", loginLimiter, verifyTurnstile, async (req, res) => {
     }
 
     setSessionCookie(res, user.id);
-    res.json({ id: user.id, name: user.name, email: user.email, plan: user.plan });
+    res.json({ id: user.id, name: user.name, email: user.email, plan: user.plan, profile: mapProfile(user) });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Erro ao entrar na conta." });
@@ -298,12 +317,17 @@ app.get("/api/me", async (req, res) => {
   }
 
   try {
-    const result = await pool.query("SELECT id, name, email, plan FROM users WHERE id = $1", [userId]);
+    const result = await pool.query(
+      `SELECT id, name, email, plan, objective, exam_days, daily_hours,
+              study_time_start, study_time_end, level, subjects
+       FROM users WHERE id = $1`,
+      [userId]
+    );
     const user = result.rows[0];
     if (!user) {
       return res.status(401).json({ error: "Não autenticado." });
     }
-    res.json(user);
+    res.json({ id: user.id, name: user.name, email: user.email, plan: user.plan, profile: mapProfile(user) });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Erro ao verificar sessão." });
@@ -346,6 +370,48 @@ app.post("/api/billing/checkout", checkoutLimiter, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Erro ao iniciar o pagamento." });
+  }
+});
+
+app.post("/api/profile", async (req, res) => {
+  const userId = getAuthenticatedUserId(req);
+  if (!userId) {
+    return res.status(401).json({ error: "Não autenticado." });
+  }
+
+  const body = req.body || {};
+  const objective = ALLOWED_OBJECTIVES.has(body.objective) ? body.objective : null;
+  const days = Number(body.days);
+  const hours = Number(body.hours);
+  const level = ALLOWED_LEVELS.has(body.level) ? body.level : null;
+  const start = TIME_RE.test(body.studyTimeStart) ? body.studyTimeStart : null;
+  const end = TIME_RE.test(body.studyTimeEnd) ? body.studyTimeEnd : null;
+  const subjects = Array.isArray(body.subjects)
+    ? body.subjects.filter((item) => typeof item === "string" && item.trim() && item.length <= 100).slice(0, 20)
+    : [];
+
+  if (!objective) {
+    return res.status(400).json({ error: "Objetivo inválido." });
+  }
+  if (!Number.isInteger(days) || days < 1 || days > 999) {
+    return res.status(400).json({ error: "Prazo deve estar entre 1 e 999 dias." });
+  }
+  if (body.hours !== undefined && (!Number.isInteger(hours) || hours < 1 || hours > 24)) {
+    return res.status(400).json({ error: "Horas por dia inválidas." });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE users SET objective = $1, exam_days = $2, daily_hours = $3,
+              study_time_start = $4, study_time_end = $5, level = $6, subjects = $7::jsonb
+       WHERE id = $8
+       RETURNING objective, exam_days, daily_hours, study_time_start, study_time_end, level, subjects`,
+      [objective, days, Number.isInteger(hours) ? hours : null, start, end, level, JSON.stringify(subjects), userId]
+    );
+    res.json({ profile: mapProfile(result.rows[0]) });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Erro ao salvar seu perfil." });
   }
 });
 

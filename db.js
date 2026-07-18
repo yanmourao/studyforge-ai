@@ -56,6 +56,14 @@ async function ensureSchema() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS plan VARCHAR(20) NOT NULL DEFAULT 'free'`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255)`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(255)`);
+  // Perfil de estudo persistido (antes vivia só no estado do front).
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS objective VARCHAR(50)`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS exam_days INTEGER`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS daily_hours INTEGER`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS study_time_start VARCHAR(5)`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS study_time_end VARCHAR(5)`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS level VARCHAR(30)`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subjects JSONB`);
 }
 
 module.exports = pool;
