@@ -41,6 +41,18 @@ async function ensureSchema() {
     )
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS study_sessions_user_date_idx ON study_sessions (user_id, session_date)`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS syllabus_progress (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      subject VARCHAR(100) NOT NULL,
+      topic VARCHAR(255) NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'unknown',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (user_id, subject, topic)
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS syllabus_progress_user_idx ON syllabus_progress (user_id)`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS plan VARCHAR(20) NOT NULL DEFAULT 'free'`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255)`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(255)`);

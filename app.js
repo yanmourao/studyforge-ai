@@ -21,8 +21,42 @@ const state = {
     level: "Intermediário",
     subjects: []
   },
-  sessions: []
+  sessions: [],
+  // Domínio de cada tópico da ementa: chave "Matéria|||Tópico" -> status
+  // ("unknown" | "learning" | "mastered").
+  syllabus: {}
 };
+
+// Ementa de referência por matéria (conteúdos típicos de prova).
+const SYLLABUS = {
+  "Matemática": ["Funções (afim, quadrática, exponencial)", "Logaritmos", "Progressões (PA e PG)", "Geometria plana", "Geometria espacial", "Trigonometria", "Análise combinatória", "Probabilidade", "Estatística e gráficos", "Matemática financeira"],
+  "Português": ["Interpretação de texto", "Gêneros textuais", "Figuras de linguagem", "Funções da linguagem", "Variação linguística", "Sintaxe (período e oração)", "Concordância verbal e nominal", "Regência", "Crase", "Redação dissertativa-argumentativa"],
+  "Biologia": ["Citologia", "Bioquímica celular", "Genética", "Evolução", "Ecologia", "Fisiologia humana", "Botânica", "Zoologia", "Microbiologia e doenças", "Biotecnologia"],
+  "História": ["Antiguidade clássica", "Idade Média", "Grandes navegações", "Brasil colônia", "Iluminismo e revoluções", "Independência do Brasil", "República brasileira", "Era Vargas", "Guerras mundiais", "Guerra Fria e mundo atual"],
+  "Física": ["Cinemática", "Leis de Newton", "Trabalho e energia", "Hidrostática", "Termologia e calorimetria", "Óptica geométrica", "Ondulatória", "Eletrostática", "Eletrodinâmica (circuitos)", "Eletromagnetismo"],
+  "Química": ["Estrutura atômica", "Tabela periódica", "Ligações químicas", "Funções inorgânicas", "Reações químicas", "Estequiometria", "Soluções e concentração", "Termoquímica", "Química orgânica", "Eletroquímica"]
+};
+
+const SYLLABUS_STATUS_WEIGHT = { mastered: 1, learning: 0.5, unknown: 0 };
+const SYLLABUS_STATUS_LABEL = { mastered: "Já domino", learning: "Estudando", unknown: "Não sei" };
+
+function syllabusKey(subject, topic) {
+  return `${subject}|||${topic}`;
+}
+
+function subjectMastery(subject) {
+  const topics = SYLLABUS[subject] || [];
+  if (!topics.length) return { coverage: 0, remaining: 100, counts: { mastered: 0, learning: 0, unknown: 0 } };
+  const counts = { mastered: 0, learning: 0, unknown: 0 };
+  let score = 0;
+  topics.forEach((topic) => {
+    const status = state.syllabus[syllabusKey(subject, topic)] || "unknown";
+    counts[status] = (counts[status] || 0) + 1;
+    score += SYLLABUS_STATUS_WEIGHT[status] || 0;
+  });
+  const coverage = Math.round((score / topics.length) * 100);
+  return { coverage, remaining: 100 - coverage, counts };
+}
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -511,12 +545,140 @@ async function fetchDashboard() {
   }
 }
 
+async function fetchSyllabus() {
+  try {
+    const response = await fetch(`${API_BASE}/api/syllabus`, { credentials: "include" });
+    if (!response.ok) return;
+    const data = await response.json();
+    state.syllabus = {};
+    (data.progress || []).forEach((row) => {
+      state.syllabus[syllabusKey(row.subject, row.topic)] = row.status;
+    });
+    renderSyllabusView();
+  } catch (error) {
+    // Mantém o que já estava renderizado se o servidor cair.
+  }
+}
+
+function renderSyllabusView() {
+  const tag = $("#syllabus-objective-tag");
+  if (tag) tag.innerHTML = `<span>${state.user.objective}</span>`;
+
+  const subjects = state.user.subjects.length ? state.user.subjects : Object.keys(SYLLABUS);
+  const knownSubjects = subjects.filter((subject) => SYLLABUS[subject]);
+
+  const listEl = $("#syllabus-subject-list");
+  if (listEl) {
+    listEl.innerHTML = knownSubjects.map((subject) => {
+      const { coverage, counts } = subjectMastery(subject);
+      const total = (SYLLABUS[subject] || []).length;
+      const colorClass = subjectColorClass(subject);
+      return `<article class="panel syllabus-subject" data-syllabus-subject="${subject}">
+        <div class="syllabus-subject-head"><span class="subject-dot ${colorClass}"></span><div><strong>${subject}</strong><small>${counts.mastered} de ${total} tópicos dominados</small></div><span class="syllabus-learned-pill">${coverage}% aprendido</span></div>
+        <div class="syllabus-subject-bar"><i class="${colorClass}" style="width:${coverage}%"></i></div>
+        <div class="syllabus-subject-foot"><span>${coverage}% da ementa</span><button class="text-button" data-action="open-syllabus" data-subject="${subject}">Preencher ementa <span>→</span></button></div>
+      </article>`;
+    }).join("");
+  }
+
+  const totals = { mastered: 0, learning: 0, unknown: 0 };
+  knownSubjects.forEach((subject) => {
+    const { counts } = subjectMastery(subject);
+    totals.mastered += counts.mastered;
+    totals.learning += counts.learning;
+    totals.unknown += counts.unknown;
+  });
+  const totalTopics = totals.mastered + totals.learning + totals.unknown;
+
+  ["mastered", "learning", "unknown"].forEach((status) => {
+    const count = totals[status];
+    const percent = totalTopics ? Math.round((count / totalTopics) * 100) : 0;
+    const pctEl = $(`#syllabus-${status}-pct`);
+    if (pctEl) pctEl.innerHTML = `${percent}<span>%</span>`;
+    const countEl = $(`#syllabus-${status}-count`);
+    if (countEl) countEl.textContent = `${count} de ${totalTopics} tópicos`;
+    const barEl = $(`#syllabus-${status}-bar`);
+    if (barEl) barEl.style.width = `${percent}%`;
+  });
+
+  const totalLearned = totalTopics ? Math.round((totals.mastered / totalTopics) * 100) : 0;
+
+  const answered = knownSubjects.some((subject) => (SYLLABUS[subject] || []).some((topic) => state.syllabus[syllabusKey(subject, topic)]));
+  const hintTitle = $("#syllabus-hint-title");
+  const hintText = $("#syllabus-hint-text");
+  if (hintTitle && hintText) {
+    if (!answered) {
+      hintTitle.textContent = "Comece pelo que ainda não viu.";
+      hintText.textContent = "Preencha a ementa de cada matéria para o StudyForge priorizar os tópicos que faltam no seu plano.";
+    } else {
+      const focus = [...knownSubjects].sort((a, b) => subjectMastery(b).remaining - subjectMastery(a).remaining)[0];
+      hintTitle.textContent = totalLearned >= 85 ? "Você está quase lá!" : `Foque em ${focus} agora.`;
+      hintText.textContent = totalLearned >= 85
+        ? "Você já aprendeu quase toda a ementa. Capriche na revisão dos últimos tópicos."
+        : `${focus} é a matéria menos avançada (só ${subjectMastery(focus).coverage}% aprendido).`;
+    }
+  }
+}
+
+let editingSyllabusSubject = null;
+function openSyllabusModal(subject) {
+  const topics = SYLLABUS[subject];
+  if (!topics) return;
+  editingSyllabusSubject = subject;
+  $("#syllabus-modal-title").textContent = `Ementa de ${subject}`;
+  $("#syllabus-modal-sub").textContent = "Para cada tópico, diga o quanto você já sabe. Isso mostra o que ainda falta.";
+  $("#syllabus-topic-list").innerHTML = topics.map((topic) => {
+    const current = state.syllabus[syllabusKey(subject, topic)] || "unknown";
+    const options = ["unknown", "learning", "mastered"].map((status) =>
+      `<button class="topic-option ${status} ${current === status ? "selected" : ""}" data-topic-status="${status}">${SYLLABUS_STATUS_LABEL[status]}</button>`
+    ).join("");
+    return `<div class="syllabus-topic-row" data-topic="${topic.replace(/"/g, "&quot;")}" data-status="${current}"><span class="syllabus-topic-name">${topic}</span><div class="topic-options">${options}</div></div>`;
+  }).join("");
+  $("#syllabus-modal").classList.remove("hidden");
+}
+
+function closeSyllabusModal() {
+  $("#syllabus-modal").classList.add("hidden");
+  editingSyllabusSubject = null;
+}
+
+async function saveSyllabus() {
+  if (!editingSyllabusSubject) return;
+  const subject = editingSyllabusSubject;
+  const items = $$("#syllabus-topic-list .syllabus-topic-row").map((row) => ({
+    subject,
+    topic: row.dataset.topic,
+    status: row.dataset.status || "unknown"
+  }));
+
+  try {
+    const response = await fetch(`${API_BASE}/api/syllabus`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ items })
+    });
+    if (!response.ok) throw new Error("save failed");
+    items.forEach((item) => {
+      state.syllabus[syllabusKey(item.subject, item.topic)] = item.status;
+    });
+    closeSyllabusModal();
+    renderSyllabusView();
+    const { coverage } = subjectMastery(subject);
+    showToast(`Ementa de ${subject} salva. Você já aprendeu ${coverage}%.`);
+  } catch (error) {
+    showToast("Não foi possível salvar sua ementa agora.");
+  }
+}
+
 function enterDashboard() {
   setUserLabels();
   renderWeekPlan();
+  renderSyllabusView();
   showScreen("dashboard-screen");
   switchView("overview");
   fetchDashboard();
+  fetchSyllabus();
 }
 
 function goToOnboarding() {
@@ -541,7 +703,7 @@ function switchView(view) {
   state.currentView = view;
   $$("[data-view-panel]").forEach((panel) => panel.classList.toggle("active-view", panel.dataset.viewPanel === view));
   $$(".side-nav-item[data-view]").forEach((item) => item.classList.toggle("active", item.dataset.view === view));
-  const labels = { overview: "Visão geral", plan: "Meu plano", tutor: "Tutor IA", progress: "Meu progresso" };
+  const labels = { overview: "Visão geral", plan: "Meu plano", syllabus: "Minha ementa", tutor: "Tutor IA", progress: "Meu progresso" };
   $("#breadcrumb-current").textContent = labels[view] || "Visão geral";
   $(".sidebar")?.classList.remove("sidebar-open");
 }
@@ -573,6 +735,7 @@ function savePlanFromModal() {
   closePlanModal();
   setUserLabels();
   renderWeekPlan();
+  renderSyllabusView();
   showToast("Plano atualizado com seu novo foco.");
 }
 
@@ -733,6 +896,9 @@ document.addEventListener("click", async (event) => {
     if (action === "regenerate") openPlanModal();
     if (action === "close-plan-modal") closePlanModal();
     if (action === "save-plan") savePlanFromModal();
+    if (action === "open-syllabus") openSyllabusModal(actionTarget.dataset.subject);
+    if (action === "close-syllabus-modal") closeSyllabusModal();
+    if (action === "save-syllabus") await saveSyllabus();
     if (action === "open-log-session") openLogSessionModal();
     if (action === "close-log-session-modal") closeLogSessionModal();
     if (action === "save-log-session") await submitLogSession();
@@ -753,6 +919,13 @@ document.addEventListener("click", async (event) => {
     choiceTarget.classList.add("selected");
   }
   if (subjectTarget) subjectTarget.classList.toggle("selected");
+
+  const topicOption = event.target.closest(".topic-option");
+  if (topicOption) {
+    const row = topicOption.closest(".syllabus-topic-row");
+    row.dataset.status = topicOption.dataset.topicStatus;
+    $$(".topic-option", row).forEach((option) => option.classList.toggle("selected", option === topicOption));
+  }
 
   const session = event.target.closest(".schedule-item");
   if (session && event.target.closest(".schedule-check")) {
@@ -802,6 +975,10 @@ $("#log-session-modal").addEventListener("click", (event) => {
 
 $("#settings-modal").addEventListener("click", (event) => {
   if (event.target.id === "settings-modal") closeSettingsModal();
+});
+
+$("#syllabus-modal").addEventListener("click", (event) => {
+  if (event.target.id === "syllabus-modal") closeSyllabusModal();
 });
 
 $("#dark-mode-toggle").addEventListener("change", (event) => {
