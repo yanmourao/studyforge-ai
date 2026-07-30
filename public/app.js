@@ -271,7 +271,6 @@ function setUserLabels() {
   if (planLabelEl) planLabelEl.textContent = isPlus ? "Plano Plus" : "Plano gratuito";
   const badgeEl = $("#tutor-badge");
   if (badgeEl) badgeEl.textContent = isPlus ? "novo" : "plus";
-  $("#upgrade-card")?.classList.toggle("hidden", isPlus);
 }
 
 function renderSchedule() {
