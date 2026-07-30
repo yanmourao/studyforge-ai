@@ -15,8 +15,12 @@ const PORT = process.env.PORT || 3001;
 // Sem SESSION_SECRET não é possível assinar cookies com segurança: aborta o
 // boot em vez de rodar com sessões forjáveis.
 if (!SESSION_SECRET || SESSION_SECRET.length < 16) {
-  console.error("SESSION_SECRET ausente ou curto demais. Defina uma string aleatória longa no .env.");
-  process.exit(1);
+  const message = "SESSION_SECRET ausente ou curto demais. Defina uma string aleatória longa no .env.";
+  console.error(message);
+  // Rodando direto (Render/dev) aborta o processo; como função serverless
+  // process.exit() derruba o lambda sem log, então lança para aparecer no deploy.
+  if (require.main === module) process.exit(1);
+  throw new Error(message);
 }
 
 // Lista branca de origens permitidas para CORS. Aceita várias origens
