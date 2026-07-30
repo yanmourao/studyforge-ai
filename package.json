@@ -9,6 +9,7 @@
     "start": "node server.js",
     "start:next": "next start -p 3001",
     "db:reset": "node scripts/setup-db.js",
+    "check:pptx": "node scripts/check-plan-pptx.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -29,8 +30,12 @@
     "express": "^5.2.1",
     "next": "^16.2.12",
     "pg": "^8.22.0",
+    "pptxgenjs": "3.12.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "stripe": "^22.3.2"
+  },
+  "devDependencies": {
+    "jszip": "^3.10.1"
   }
 }

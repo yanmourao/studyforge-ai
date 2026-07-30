@@ -426,6 +426,49 @@ function renderWeekPlan() {
   }
 }
 
+// Exporta o plano da semana como .pptx. O deck é gerado no servidor
+// (POST /api/plan/pptx); aqui a gente só lê o plano já renderizado na tela.
+async function exportPlanPptx() {
+  const days = $$("#week-list .week-day").map((day) => ({
+    label: $(".week-day-label strong", day)?.textContent || "",
+    date: $(".week-day-label span", day)?.textContent || "",
+    rows: $$(".week-session", day).map((session) => [
+      $(".time", session)?.textContent || "",
+      $("strong", session)?.textContent || "",
+      $("small", session)?.textContent || ""
+    ])
+  }));
+
+  if (!days.length) {
+    showToast("Gere seu plano antes de exportar.");
+    return;
+  }
+
+  const subtitle = `${state.user.objective} · ${state.user.days} dias · ${state.user.studyTimeStart} às ${state.user.studyTimeEnd} · nível ${state.user.level.toLowerCase()}`;
+
+  showToast("Montando sua apresentação...");
+  try {
+    const response = await fetch(`${API_BASE}/api/plan/pptx`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ subtitle, days })
+    });
+    if (!response.ok) throw new Error("export failed");
+
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `plano-de-estudos-${toDateKey(new Date())}.pptx`;
+    link.click();
+    // Revogar na hora pode abortar o download em alguns navegadores.
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    showToast("Plano exportado em .pptx.");
+  } catch (error) {
+    showToast("Não foi possível exportar seu plano agora.");
+  }
+}
+
 function tagClassFor(tag) {
   const classes = { "Foco": "tag-coral", "Leitura": "tag-mint", "Prática": "tag-lilac", "Extra": "tag-mint" };
   return classes[tag] || "tag-lilac";
@@ -1061,6 +1104,7 @@ document.addEventListener("click", async (event) => {
     }
     if (action === "upgrade") startCheckout();
     if (action === "regenerate") openPlanModal();
+    if (action === "export-pptx") exportPlanPptx();
     if (action === "close-plan-modal") closePlanModal();
     if (action === "save-plan") savePlanFromModal();
     if (action === "open-syllabus") openSyllabusModal(actionTarget.dataset.subject);

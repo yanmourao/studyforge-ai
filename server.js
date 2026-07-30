@@ -425,6 +425,64 @@ app.post("/api/profile", async (req, res) => {
   }
 });
 
+// Gera o .pptx do plano da semana. O plano é montado no front (renderWeekPlan),
+// então o cliente só manda as linhas já prontas e aqui a gente formata os slides.
+app.post("/api/plan/pptx", async (req, res) => {
+  const userId = getAuthenticatedUserId(req);
+  if (!userId) {
+    return res.status(401).json({ error: "Não autenticado." });
+  }
+
+  const text = (value, max) => (typeof value === "string" ? value.slice(0, max) : "");
+  const days = Array.isArray(req.body?.days)
+    ? req.body.days.slice(0, 14).map((day) => ({
+        label: text(day?.label, 60),
+        date: text(day?.date, 60),
+        rows: Array.isArray(day?.rows)
+          ? day.rows.slice(0, 24).map((row) => (Array.isArray(row) ? row.slice(0, 3).map((cell) => text(cell, 200)) : ["", "", ""]))
+          : []
+      }))
+    : [];
+
+  if (!days.length) {
+    return res.status(400).json({ error: "Plano vazio." });
+  }
+
+  try {
+    const PptxGenJS = require("pptxgenjs");
+    const pptx = new PptxGenJS();
+    pptx.layout = "LAYOUT_16x9";
+
+    const cover = pptx.addSlide();
+    cover.background = { color: "1B1B1F" };
+    cover.addText("Meu plano de estudos", { x: 0.6, y: 1.6, w: 8.8, fontSize: 40, bold: true, color: "FFFFFF" });
+    cover.addText(text(req.body?.subtitle, 200), { x: 0.6, y: 2.7, w: 8.8, fontSize: 16, color: "A9A9B4" });
+    cover.addText("StudyForge AI", { x: 0.6, y: 4.7, fontSize: 12, color: "6E6E7A" });
+
+    const header = ["Horário", "Matéria", "Foco"].map((label) => ({
+      text: label,
+      options: { bold: true, color: "FFFFFF", fill: "1B1B1F" }
+    }));
+
+    days.forEach((day) => {
+      const slide = pptx.addSlide();
+      slide.addText(`${day.label} · ${day.date}`, { x: 0.5, y: 0.35, fontSize: 24, bold: true, color: "1B1B1F" });
+      slide.addTable([header, ...day.rows], {
+        x: 0.5, y: 1.1, w: 9, colW: [1.3, 2.7, 5], fontSize: 13,
+        border: { pt: 0.5, color: "E2E2E8" }, valign: "middle"
+      });
+    });
+
+    const buffer = await pptx.write({ outputType: "nodebuffer" });
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.presentationml.presentation");
+    res.setHeader("Content-Disposition", `attachment; filename="plano-de-estudos.pptx"`);
+    res.send(buffer);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Erro ao gerar a apresentação." });
+  }
+});
+
 app.get("/api/dashboard", async (req, res) => {
   const userId = getAuthenticatedUserId(req);
   if (!userId) {
