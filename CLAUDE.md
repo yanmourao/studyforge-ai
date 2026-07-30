@@ -4,13 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-StudyForge AI — a study-planning SaaS prototype. Single-page vanilla-JS frontend + Express/Postgres backend. **No framework, no bundler, no build step, no test runner.** The three frontend files (`index.html`, `app.js`, `styles.css`) are served as-is by Express and edited directly.
+StudyForge AI — a study-planning SaaS prototype. Single-page vanilla-JS frontend + Express/Postgres backend. **No frontend framework, no bundler, no test runner.** The three frontend files (`public/index.html`, `public/app.js`, `public/styles.css`) are served as-is (by Next's static handler on Vercel, by `express.static` on Render) and edited directly. Next.js is only a hosting shell: `pages/api/[...path].js` hands every `/api/*` request to the same Express app, and `next.config.js` rewrites `/` to `/index.html`. Don't rewrite the SPA into React.
 
 ## Commands
 
 ```bash
 npm install
-node server.js          # or: npm start — serves on PORT (default 3001, set in .env)
+node server.js          # or: npm start — Express only (Render path), PORT from .env
+npm run dev             # next dev on 3001 (Vercel path)
+npm run build           # next build
 npm run db:reset        # scripts/setup-db.js — DROPS and recreates the users table (destructive)
 ```
 
@@ -20,7 +22,7 @@ npm run db:reset        # scripts/setup-db.js — DROPS and recreates the users 
 
 ## Architecture
 
-**Split deploy.** Frontend is hosted on GitHub Pages, backend on Render (Postgres + web service, see `render.yaml`). `app.js` picks the API base at runtime: if `window.location.hostname` ends with `github.io` it points to the Render URL, otherwise same-origin (`API_BASE`). All frontend↔backend calls use `credentials: "include"` (cookie auth), so **CORS matters** — `server.js` reflects the request origin only if it's in the `ALLOWED_ORIGINS` allowlist (never `*`).
+**Single-origin deploy on Vercel, Render kept as an alternative.** Both run the same `server.js` (it exports the app and only `listen()`s when run directly). `public/app.js` picks the API base at runtime: same-origin unless the host ends with `github.io` (legacy GitHub Pages split, still supported). All frontend↔backend calls use `credentials: "include"` (cookie auth), so **CORS matters** — `server.js` reflects the request origin only if it's in the `ALLOWED_ORIGINS` allowlist (never `*`).
 
 **Frontend is one global state object.** `app.js` has a single `state` object; there is no framework. Screens (landing / onboarding / login / dashboard) toggle via the `.active-screen` class; dashboard sub-views via `data-view-panel` + `.active-view`. A single delegated `document.click` handler dispatches on `data-action` / `data-view` attributes — wire new buttons through those, not per-element listeners. Any user-provided text rendered via `innerHTML` (e.g. custom syllabus topics) MUST go through `escapeHtml()` to avoid stored XSS.
 

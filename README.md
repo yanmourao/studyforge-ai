@@ -8,10 +8,22 @@ O cadastro (passo 1 do onboarding) grava nome, e-mail e senha em uma tabela `use
 
 ```bash
 npm install
-node server.js   # ou: npm start
+node server.js   # ou: npm start  (Express sozinho, mesmo modo do Render)
+npm run dev      # alternativa: Next.js, mesmo modo da Vercel
 ```
 
 Depois acesse `http://localhost:3001` (porta configurável em `.env`).
+
+## Deploy
+
+Os dois caminhos rodam o **mesmo** `server.js`:
+
+- **Vercel (padrão):** `next build`; `pages/api/[...path].js` entrega todas as
+  rotas `/api/*` ao app Express e o front (`public/`) sai como estático.
+  Configure as variáveis de ambiente no painel (`DATABASE_URL`,
+  `SESSION_SECRET`, `STRIPE_*`).
+- **Render (opcional):** `render.yaml`, `npm start` → `node server.js`, que
+  serve `public/` e as APIs na mesma porta.
 
 > **O servidor precisa estar rodando.** Se `http://localhost:3001` mostrar
 > `ERR_CONNECTION_REFUSED` / "recusou estabelecer ligação", é porque o processo

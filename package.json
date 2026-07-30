@@ -4,7 +4,10 @@
   "description": "Protótipo front-end navegável do fluxo principal do StudyForge AI.",
   "main": "server.js",
   "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
     "start": "node server.js",
+    "start:next": "next start -p 3001",
     "db:reset": "node scripts/setup-db.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -24,7 +27,10 @@
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "next": "^16.2.12",
     "pg": "^8.22.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "stripe": "^22.3.2"
   }
 }

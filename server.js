@@ -30,7 +30,12 @@ const ALLOWED_ORIGINS = new Set(
 );
 if (!IS_PROD) ALLOWED_ORIGINS.add(`http://localhost:${PORT}`);
 
-const FRONTEND_URL = IS_PROD ? ALLOWED_ORIGIN : `http://localhost:${PORT}`;
+// Na Vercel a URL pública muda a cada deploy: FRONTEND_URL (ou VERCEL_URL,
+// preenchida automaticamente) tem prioridade sobre a origem fixa do allowlist.
+const VERCEL_URL = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null;
+const FRONTEND_URL = process.env.FRONTEND_URL || (IS_PROD ? VERCEL_URL || ALLOWED_ORIGIN : `http://localhost:${PORT}`);
+if (VERCEL_URL) ALLOWED_ORIGINS.add(VERCEL_URL);
+if (process.env.FRONTEND_URL) ALLOWED_ORIGINS.add(process.env.FRONTEND_URL);
 const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID;
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 const TURNSTILE_SECRET = process.env.TURNSTILE_SECRET;
@@ -241,9 +246,10 @@ app.post("/api/billing/webhook", express.raw({ type: "application/json" }), asyn
 });
 
 app.use(express.json({ limit: "16kb" }));
-app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
-app.get("/app.js", (req, res) => res.sendFile(path.join(__dirname, "app.js")));
-app.get("/styles.css", (req, res) => res.sendFile(path.join(__dirname, "styles.css")));
+// Arquivos do front vivem em public/ (servidos pelo Next na Vercel; aqui é o
+// caminho usado quando o Express roda sozinho, ex: Render / dev sem Next).
+app.use(express.static(path.join(__dirname, "public")));
+app.get("/", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 
 app.post("/api/signup", signupLimiter, verifyTurnstile, async (req, res) => {
   const name = (req.body.name || "").trim();
@@ -607,12 +613,18 @@ app.use((error, req, res, next) => {
   res.status(500).json({ error: "Erro interno." });
 });
 
-pool
-  .ensureSchema()
-  .then(() => {
-    app.listen(PORT, () => console.log(`StudyForge AI rodando em http://localhost:${PORT}`));
-  })
-  .catch((error) => {
-    console.error("Falha ao preparar o banco de dados:", error.message);
-    process.exit(1);
-  });
+module.exports = app;
+
+// Só sobe o servidor quando executado direto (`node server.js`, Render/dev).
+// Na Vercel o mesmo app é chamado por pages/api/[...path].js como função.
+if (require.main === module) {
+  pool
+    .ensureSchema()
+    .then(() => {
+      app.listen(PORT, () => console.log(`StudyForge AI rodando em http://localhost:${PORT}`));
+    })
+    .catch((error) => {
+      console.error("Falha ao preparar o banco de dados:", error.message);
+      process.exit(1);
+    });
+}
