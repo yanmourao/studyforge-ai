@@ -49,6 +49,78 @@ const SYLLABUS_OVERRIDES = {
 const SYLLABUS_STATUS_WEIGHT = { mastered: 1, learning: 0.5, unknown: 0 };
 const SYLLABUS_STATUS_LABEL = { mastered: "Já domino", learning: "Estudando", unknown: "Não sei" };
 
+// Resumo de apoio por tópico, exibido dentro da ementa. Por enquanto só
+// Matemática — as outras matérias caem no fallback (nenhum resumo).
+// As imagens vêm do Wikimedia Commons via Special:FilePath, que resolve
+// sempre para a versão atual do arquivo.
+const COMMONS = (file, width = 520) =>
+  `https://commons.wikimedia.org/wiki/Special:FilePath/${file}?width=${width}`;
+
+const TOPIC_CONTENT = {
+  "Matemática": {
+    "Funções (afim, quadrática, exponencial)": {
+      summary: "Uma função liga cada entrada x a uma única saída f(x). A afim tem gráfico de reta e taxa de variação constante. A quadrática desenha uma parábola, com concavidade para cima quando a > 0. A exponencial cresce (ou decai) por multiplicação, não por soma — é o que aparece em juros e população.",
+      formula: "Afim: f(x) = ax + b   ·   Quadrática: f(x) = ax² + bx + c   ·   Vértice: x = −b/2a   ·   Exponencial: f(x) = a·bˣ",
+      image: COMMONS("Polynomialdeg2.svg"),
+      caption: "Parábola de uma função quadrática, com raízes e vértice."
+    },
+    "Logaritmos": {
+      summary: "Logaritmo é o expoente que falta: log_b(x) responde \"a que potência elevo b para chegar em x?\". Serve para transformar multiplicação em soma, o que resolve equações onde a incógnita está no expoente. Escalas Richter, pH e decibéis são logarítmicas.",
+      formula: "log_b(x) = y ⟺ bʸ = x   ·   log(a·b) = log a + log b   ·   log(aⁿ) = n·log a",
+      image: COMMONS("Logarithm_plots.png"),
+      caption: "Curvas de log em bases diferentes — todas passam por (1, 0)."
+    },
+    "Progressões (PA e PG)": {
+      summary: "Na PA cada termo soma uma razão constante ao anterior; na PG, multiplica. Reconhecer qual das duas é o caso costuma ser metade da questão: se a diferença entre termos é fixa, é PA; se o quociente é fixo, é PG.",
+      formula: "PA: aₙ = a₁ + (n−1)r   ·   Sₙ = n(a₁+aₙ)/2\nPG: aₙ = a₁·qⁿ⁻¹   ·   Sₙ = a₁(qⁿ−1)/(q−1)",
+      image: COMMONS("Arithmetic_progression.svg"),
+      caption: "Progressão aritmética representada geometricamente."
+    },
+    "Geometria plana": {
+      summary: "Áreas, perímetros e semelhança de figuras no plano. A maior parte das questões cai em triângulos: soma dos ângulos internos igual a 180°, Pitágoras no retângulo e semelhança quando os ângulos coincidem. Vale decorar as áreas básicas.",
+      formula: "Triângulo: A = b·h/2   ·   Círculo: A = πr², C = 2πr   ·   Pitágoras: a² = b² + c²",
+      image: COMMONS("Triangle_illustration.svg"),
+      caption: "Elementos de um triângulo: base, altura e ângulos."
+    },
+    "Geometria espacial": {
+      summary: "Volumes e áreas de superfície dos sólidos. O padrão que economiza memória: todo prisma e cilindro é área da base vezes altura, e toda pirâmide e cone é um terço disso. A esfera é o único caso que foge e precisa ser decorado.",
+      formula: "Prisma/cilindro: V = A_base·h   ·   Pirâmide/cone: V = A_base·h/3   ·   Esfera: V = 4πr³/3, A = 4πr²",
+      image: COMMONS("Platonic_Solids_Transparent.svg"),
+      caption: "Os cinco sólidos platônicos."
+    },
+    "Trigonometria": {
+      summary: "Relaciona ângulos e lados. No triângulo retângulo, seno é cateto oposto sobre hipotenusa, cosseno é adjacente sobre hipotenusa, tangente é a razão entre os dois. O ciclo trigonométrico estende essas razões para qualquer ângulo e explica a periodicidade das funções.",
+      formula: "sen²x + cos²x = 1   ·   tg x = sen x / cos x\nLei dos senos: a/sen A = b/sen B = c/sen C   ·   Lei dos cossenos: a² = b² + c² − 2bc·cos A",
+      image: COMMONS("Unit_circle_angles_color.svg"),
+      caption: "Ciclo trigonométrico com os ângulos notáveis."
+    },
+    "Análise combinatória": {
+      summary: "Conta possibilidades sem listar uma a uma. A pergunta que decide a fórmula é: a ordem importa? Se sim, é arranjo ou permutação; se não, é combinação. O princípio multiplicativo resolve boa parte dos casos sozinho.",
+      formula: "Permutação: Pₙ = n!   ·   Arranjo: A(n,p) = n!/(n−p)!   ·   Combinação: C(n,p) = n!/(p!(n−p)!)",
+      image: COMMONS("Pascal%27s_triangle_5.svg"),
+      caption: "Triângulo de Pascal — cada linha traz as combinações C(n,p)."
+    },
+    "Probabilidade": {
+      summary: "Probabilidade é casos favoráveis sobre casos possíveis, num espaço amostral equiprovável. Eventos independentes multiplicam; eventos mutuamente exclusivos somam. Quando o enunciado pede \"pelo menos um\", calcular o complementar costuma ser bem mais rápido.",
+      formula: "P(A) = favoráveis / possíveis   ·   P(A ∪ B) = P(A) + P(B) − P(A ∩ B)\nIndependentes: P(A ∩ B) = P(A)·P(B)   ·   Complementar: P(não A) = 1 − P(A)",
+      image: COMMONS("Dice_Distribution_(bar).svg"),
+      caption: "Distribuição da soma de dois dados — o 7 é o resultado mais provável."
+    },
+    "Estatística e gráficos": {
+      summary: "Média, mediana e moda resumem um conjunto; desvio padrão diz o quanto ele se espalha. A mediana resiste a valores extremos e a média não — é a diferença que quase toda questão de interpretação explora. Boa parte da prova é ler gráfico com atenção ao eixo.",
+      formula: "Média = Σxᵢ/n   ·   Mediana = valor central (dados ordenados)\nDesvio padrão = √(Σ(xᵢ − x̄)²/n)",
+      image: COMMONS("Standard_deviation_diagram.svg"),
+      caption: "Curva normal: 68% dos dados a um desvio padrão da média."
+    },
+    "Matemática financeira": {
+      summary: "Juros simples incidem sempre sobre o valor inicial; juros compostos incidem sobre o montante acumulado, e por isso crescem exponencialmente. Em prazos longos a diferença entre os dois é enorme — é o que a maioria das questões quer que você perceba.",
+      formula: "Simples: M = C(1 + i·t)   ·   Compostos: M = C(1 + i)ᵗ\nAtenção: taxa e tempo precisam estar na mesma unidade.",
+      image: COMMONS("Exponential.svg"),
+      caption: "Crescimento exponencial — o formato dos juros compostos."
+    }
+  }
+};
+
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 }
@@ -758,12 +830,29 @@ function renderSyllabusView() {
   }
 }
 
+// <details> nativo: abre e fecha sem listener, sem estado e sem CSS de accordion.
+function topicContentHtml(subject, topic) {
+  const content = (TOPIC_CONTENT[subject] || {})[topic];
+  if (!content) return "";
+  return `<details class="topic-content">
+    <summary>Resumo do tópico</summary>
+    <div class="topic-content-body">
+      <p>${content.summary}</p>
+      <pre class="topic-formula">${content.formula}</pre>
+      <figure>
+        <img src="${content.image}" alt="${escapeHtml(topic)}" loading="lazy" />
+        <figcaption>${content.caption} <span>Wikimedia Commons</span></figcaption>
+      </figure>
+    </div>
+  </details>`;
+}
+
 function syllabusRowHtml(subject, topic, current) {
   const safe = escapeHtml(topic);
   const options = ["unknown", "learning", "mastered"].map((status) =>
     `<button class="topic-option ${status} ${current === status ? "selected" : ""}" data-topic-status="${status}">${SYLLABUS_STATUS_LABEL[status]}</button>`
   ).join("");
-  return `<div class="syllabus-topic-row" data-topic="${safe}" data-status="${current}"><span class="syllabus-topic-name">${safe}</span><div class="topic-options">${options}</div></div>`;
+  return `<div class="syllabus-topic-row" data-topic="${safe}" data-status="${current}"><span class="syllabus-topic-name">${safe}</span><div class="topic-options">${options}</div>${topicContentHtml(subject, topic)}</div>`;
 }
 
 let editingSyllabusSubject = null;
