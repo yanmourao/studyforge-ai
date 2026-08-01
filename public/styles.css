@@ -214,7 +214,7 @@ a { color: inherit; text-decoration: none; }
 .modal-panel-wide { max-width: 560px; }
 .syllabus-modal-sub { color: var(--ink-soft); font-size: 12px; line-height: 1.55; margin: -8px 0 20px; }
 .syllabus-topic-list { display: flex; flex-direction: column; gap: 8px; }
-.syllabus-topic-row { align-items: center; background: #fbfbfa; border: 1px solid #eeeeec; border-radius: 9px; display: flex; gap: 12px; justify-content: space-between; padding: 12px 14px; }
+.syllabus-topic-row { align-items: center; background: #fbfbfa; border: 1px solid #eeeeec; border-radius: 9px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; padding: 12px 14px; }
 .syllabus-topic-name { font: 500 12px "Space Grotesk"; flex: 1; }
 .topic-options { display: flex; flex: 0 0 auto; gap: 5px; }
 .topic-option { background: #fff; border: 1px solid #e6e5e3; border-radius: 6px; color: var(--muted); font-size: 10px; padding: 7px 9px; transition: .15s ease; }

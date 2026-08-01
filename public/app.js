@@ -49,12 +49,12 @@ const SYLLABUS_OVERRIDES = {
 const SYLLABUS_STATUS_WEIGHT = { mastered: 1, learning: 0.5, unknown: 0 };
 const SYLLABUS_STATUS_LABEL = { mastered: "Já domino", learning: "Estudando", unknown: "Não sei" };
 
-// Resumo de apoio por tópico, exibido dentro da ementa. Por enquanto só
-// Matemática — as outras matérias caem no fallback (nenhum resumo).
-// As imagens vêm do Wikimedia Commons via Special:FilePath, que resolve
-// sempre para a versão atual do arquivo.
+// Resumo de apoio por tópico, exibido dentro da ementa. Tópicos sem entrada
+// aqui (e os de SYLLABUS_OVERRIDES) simplesmente não mostram resumo; `image`
+// é opcional. As imagens vêm do Wikimedia Commons via Special:FilePath, que
+// resolve sempre para a versão atual do arquivo.
 const COMMONS = (file, width = 520) =>
-  `https://commons.wikimedia.org/wiki/Special:FilePath/${file}?width=${width}`;
+  `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(file)}?width=${width}`;
 
 const TOPIC_CONTENT = {
   "Matemática": {
@@ -97,7 +97,7 @@ const TOPIC_CONTENT = {
     "Análise combinatória": {
       summary: "Conta possibilidades sem listar uma a uma. A pergunta que decide a fórmula é: a ordem importa? Se sim, é arranjo ou permutação; se não, é combinação. O princípio multiplicativo resolve boa parte dos casos sozinho.",
       formula: "Permutação: Pₙ = n!   ·   Arranjo: A(n,p) = n!/(n−p)!   ·   Combinação: C(n,p) = n!/(p!(n−p)!)",
-      image: COMMONS("Pascal%27s_triangle_5.svg"),
+      image: COMMONS("Pascal's_triangle_5.svg"),
       caption: "Triângulo de Pascal — cada linha traz as combinações C(n,p)."
     },
     "Probabilidade": {
@@ -117,6 +117,292 @@ const TOPIC_CONTENT = {
       formula: "Simples: M = C(1 + i·t)   ·   Compostos: M = C(1 + i)ᵗ\nAtenção: taxa e tempo precisam estar na mesma unidade.",
       image: COMMONS("Exponential.svg"),
       caption: "Crescimento exponencial — o formato dos juros compostos."
+    }
+  },
+  "Português": {
+    "Interpretação de texto": {
+      summary: "A maior parte dos erros não é de vocabulário, é de desatenção ao que o enunciado pede. Separe o que o texto afirma do que você supõe: inferência é o que decorre do texto, não o que combina com ele. Alternativas erradas costumam ser verdadeiras no mundo, mas ausentes no texto.",
+      formula: "Roteiro: 1) ler o enunciado antes do texto  2) marcar tese e argumentos  3) eliminar alternativas que extrapolam  4) conferir advérbios de intensidade (sempre, nunca, apenas)"
+    },
+    "Gêneros textuais": {
+      summary: "Cada gênero tem função, suporte e público. Notícia informa, editorial opina, crônica narra o cotidiano, charge critica pela imagem, verbete define. Identificar o gênero já entrega o objetivo comunicativo, que é o que quase toda questão cobra.",
+      formula: "Narrativo: enredo, tempo, espaço  ·  Descritivo: características  ·  Dissertativo: tese + argumentos  ·  Injuntivo: instrução (receita, manual, bula)"
+    },
+    "Figuras de linguagem": {
+      summary: "São desvios intencionais que produzem efeito de sentido. A prova raramente pede o nome pelo nome: ela pergunta qual efeito a figura causa no texto. Metáfora e metonímia são as mais cobradas — a metáfora compara por semelhança, a metonímia troca por proximidade.",
+      formula: "Metáfora: \"ele é uma fera\"  ·  Metonímia: \"li Machado\"  ·  Hipérbole: exagero  ·  Ironia: diz o oposto  ·  Eufemismo: suaviza  ·  Antítese: opõe  ·  Personificação: dá vida ao inanimado"
+    },
+    "Funções da linguagem": {
+      summary: "Cada função destaca um elemento da comunicação. Referencial foca no assunto (notícia), emotiva no emissor (diário), conativa no receptor (propaganda), fática no canal (\"alô?\"), metalinguística no próprio código (dicionário) e poética na mensagem.",
+      formula: "Emissor → emotiva  ·  Receptor → conativa  ·  Referente → referencial  ·  Canal → fática  ·  Código → metalinguística  ·  Mensagem → poética"
+    },
+    "Variação linguística": {
+      summary: "Não existe português \"errado\", existe variedade inadequada ao contexto. As variações são regionais (diatópicas), sociais (diastráticas), históricas (diacrônicas) e de situação (diafásicas). O preconceito linguístico é tema recorrente de redação e de interpretação.",
+      formula: "Norma-padrão = variedade de prestígio, ensinada na escola\nAdequação > correção: o critério é a situação de uso"
+    },
+    "Sintaxe (período e oração)": {
+      summary: "Período simples tem uma oração; composto tem duas ou mais. Na coordenação as orações são independentes; na subordinação uma exerce função dentro da outra (substantiva, adjetiva ou adverbial). Achar o verbo primeiro é o atalho: cada verbo, uma oração.",
+      formula: "Coordenadas: aditiva, adversativa, alternativa, conclusiva, explicativa\nSubordinadas: substantivas (fazem papel de sujeito/objeto), adjetivas (que...), adverbiais (causa, condição, concessão, tempo...)"
+    },
+    "Concordância verbal e nominal": {
+      summary: "O verbo concorda com o sujeito e o adjetivo com o substantivo. As pegadinhas quase sempre afastam o sujeito do verbo ou o disfarçam de outra coisa — expressões como \"um dos que\", \"a maioria de\", \"haver\" no sentido de existir e a partícula \"se\".",
+      formula: "\"Haver\" = existir → sempre singular: Havia problemas.\n\"Fazer\" = tempo → impessoal: Faz dois anos.\nVerbo + se (partícula apassivadora) concorda: Vendem-se casas."
+    },
+    "Regência": {
+      summary: "Regência é a preposição que o verbo ou o nome exige. Muitos verbos mudam de sentido conforme a preposição, e é justamente aí que a prova bate: assistir a (ver) contra assistir (socorrer), aspirar a (desejar) contra aspirar (sugar).",
+      formula: "Preferir: algo A algo (nunca \"do que\")  ·  Obedecer/desobedecer a  ·  Visar a (almejar)  ·  Implicar (sem preposição) = acarretar  ·  Chegar a (não \"em\")"
+    },
+    "Crase": {
+      summary: "Crase é a fusão da preposição \"a\" com o artigo \"a\". Só existe diante de palavra feminina que aceite artigo — por isso não há crase antes de verbo, de palavra masculina ou de pronome pessoal. O teste da troca por palavra masculina resolve quase todos os casos.",
+      formula: "Teste: troque por masculino. \"Vou à feira\" → \"vou ao mercado\" = tem crase.\nSempre: à medida que, às vezes, à noite, à moda de\nNunca: a pé, a partir de, a ela, a distância (sem especificar)"
+    },
+    "Redação dissertativa-argumentativa": {
+      summary: "O texto do ENEM tem estrutura fixa: introdução com tese, dois parágrafos de desenvolvimento com repertório e argumento, e conclusão com proposta de intervenção detalhada. A proposta vale competência inteira e é onde mais se perde ponto por ficar vaga.",
+      formula: "Proposta completa = agente + ação + meio + finalidade + detalhamento\n5 competências × 200 pontos: norma culta, compreensão do tema, argumentação, coesão, proposta"
+    }
+  },
+  "Biologia": {
+    "Citologia": {
+      summary: "A célula é a unidade da vida. Procarionte não tem núcleo nem organelas membranosas; eucarionte tem os dois. Saber a função de cada organela resolve a maioria das questões: mitocôndria produz ATP, ribossomo monta proteína, lisossomo digere, complexo golgiense empacota.",
+      formula: "Animal: centríolos e lisossomos, sem parede\nVegetal: parede de celulose, cloroplasto, vacúolo grande\nMembrana: mosaico fluido (bicamada lipídica + proteínas)",
+      image: COMMONS("Animal_cell_structure_en.svg"),
+      caption: "Organelas de uma célula animal eucarionte."
+    },
+    "Bioquímica celular": {
+      summary: "Respiração celular e fotossíntese são as duas vias que a prova cobra. A respiração quebra glicose para gerar ATP em três etapas: glicólise (citoplasma), ciclo de Krebs e cadeia respiratória (mitocôndria). A fotossíntese faz o caminho inverso, usando luz.",
+      formula: "Respiração: C₆H₁₂O₆ + 6O₂ → 6CO₂ + 6H₂O + ~38 ATP\nFotossíntese: 6CO₂ + 6H₂O + luz → C₆H₁₂O₆ + 6O₂\nFermentação: sem O₂, rende apenas 2 ATP",
+      image: COMMONS("Glycolysis_overview.svg"),
+      caption: "Glicólise: a quebra da glicose em piruvato, no citoplasma."
+    },
+    "Genética": {
+      summary: "A primeira lei de Mendel trata de um gene; a segunda, de dois genes independentes. O quadro de Punnett resolve os cruzamentos na base do desenho. Fique atento a heredogramas: recessivo aparece pulando gerações, e ligado ao X afeta muito mais homens.",
+      formula: "Monoibridismo: Aa × Aa → 3:1 (fenótipo), 1:2:1 (genótipo)\nDiibridismo: AaBb × AaBb → 9:3:3:1\nSangue: A, B = codominantes; O = recessivo",
+      image: COMMONS("Punnett_square_mendel_flowers.svg"),
+      caption: "Quadro de Punnett para um cruzamento entre heterozigotos."
+    },
+    "Evolução": {
+      summary: "Lamarck errou no mecanismo (uso e desuso, herança de caracteres adquiridos); Darwin acertou com seleção natural sobre variações que já existem. O neodarwinismo acrescenta a origem dessa variação: mutação e recombinação genética.",
+      formula: "Seleção natural = variação + herança + reprodução diferencial\nHomólogos: mesma origem, funções diferentes (divergente)\nAnálogos: mesma função, origens diferentes (convergente)",
+      image: COMMONS("Darwin's_finches_by_Gould.jpg"),
+      caption: "Os tentilhões de Galápagos: bicos adaptados a alimentos diferentes."
+    },
+    "Ecologia": {
+      summary: "Energia flui em sentido único e diminui a cada nível trófico (só ~10% passa adiante); matéria circula em ciclos. Por isso as cadeias são curtas e a pirâmide de energia nunca é invertida. Questões de impacto ambiental costumam partir daí.",
+      formula: "Produtor → consumidor 1º → 2º → 3º → decompositor\nRelações: mutualismo, comensalismo (+/0), predatismo, parasitismo, competição\nBiomagnificação: poluente se concentra no topo da cadeia",
+      image: COMMONS("FoodWeb.svg"),
+      caption: "Teia alimentar: cadeias interligadas dentro de um ecossistema."
+    },
+    "Fisiologia humana": {
+      summary: "Os sistemas são cobrados pela integração, não isolados. Digestório quebra e absorve, respiratório e circulatório fazem a troca e o transporte de gases, excretor filtra o sangue e nervoso e endócrino coordenam tudo — um por impulso elétrico, o outro por hormônio.",
+      formula: "Circulação dupla: pequena (coração ↔ pulmão) e grande (coração ↔ corpo)\nSangue: átrio direito = venoso, átrio esquerdo = arterial\nNéfron: filtração → reabsorção → secreção",
+      image: COMMONS("Diagram_of_the_human_heart_(cropped).svg"),
+      caption: "Câmaras e vasos do coração humano."
+    },
+    "Botânica": {
+      summary: "As plantas se organizam em grupos com complexidade crescente: briófitas (sem vasos), pteridófitas (com vasos, sem semente), gimnospermas (semente nua) e angiospermas (flor e fruto). Cada novidade evolutiva reduz a dependência de água para se reproduzir.",
+      formula: "Xilema: água e sais, de baixo para cima  ·  Floema: seiva elaborada\nFlor: sépala, pétala, estame (masculino), carpelo/pistilo (feminino)\nAuxina, giberelina, etileno = hormônios vegetais",
+      image: COMMONS("Mature_flower_diagram.svg"),
+      caption: "Partes de uma flor completa de angiosperma."
+    },
+    "Zoologia": {
+      summary: "O que a prova cobra são as sinapomorfias: a característica que marca cada grupo. Artrópodes têm exoesqueleto de quitina e patas articuladas; vertebrados, coluna; aves e mamíferos são os únicos endotérmicos; âmnio é o que permitiu o ovo fora d'água.",
+      formula: "Poríferos → cnidários → platelmintos → nematódeos → moluscos → anelídeos → artrópodes → equinodermos → cordados",
+      image: COMMONS("Phylogenetic_tree.svg"),
+      caption: "Árvore filogenética: parentesco por ancestral comum."
+    },
+    "Microbiologia e doenças": {
+      summary: "Vírus não são células e só se reproduzem dentro de um hospedeiro — por isso antibiótico não funciona contra eles. Bactérias, protozoários, fungos e vermes causam doenças por mecanismos diferentes, e a prova costuma cruzar isso com forma de transmissão e prevenção.",
+      formula: "Vírus: dengue, HIV, covid, gripe  ·  Bactéria: tuberculose, hanseníase, sífilis\nProtozoário: malária, doença de Chagas, amebíase  ·  Verme: esquistossomose, teníase\nVacina = imunização ativa  ·  Soro = imunização passiva (imediata)",
+      image: COMMONS("Bacterial_morphology_diagram.svg"),
+      caption: "Formas bacterianas: cocos, bacilos, espirilos e vibriões."
+    },
+    "Biotecnologia": {
+      summary: "DNA recombinante, transgênicos, PCR, clonagem e células-tronco. O que muda de técnica para técnica é o objetivo: PCR amplifica um trecho de DNA, transgenia insere um gene de outra espécie, clonagem copia um indivíduo inteiro. Questões costumam pedir a implicação ética.",
+      formula: "PCR: desnaturação (95°C) → anelamento → extensão\nTransgênico = gene de outra espécie  ·  OGM = qualquer modificação\nCélula-tronco: embrionária (pluripotente) vs adulta (multipotente)",
+      image: COMMONS("Polymerase_chain_reaction.svg"),
+      caption: "Ciclos da PCR, que duplicam o DNA a cada repetição."
+    }
+  },
+  "História": {
+    "Antiguidade clássica": {
+      summary: "Grécia e Roma formaram o repertório político do Ocidente. Atenas criou a democracia direta — restrita a homens livres, sem mulheres, escravos e estrangeiros. Roma foi da República ao Império e deixou o direito, a base de quase todo sistema jurídico atual.",
+      formula: "Atenas: democracia direta  ·  Esparta: oligarquia militar\nRoma: Monarquia → República (509 a.C.) → Império (27 a.C.) → queda do Império Romano do Ocidente (476)",
+      image: COMMONS("The_Parthenon_in_Athens.jpg"),
+      caption: "O Partenon, em Atenas, símbolo do período clássico grego."
+    },
+    "Idade Média": {
+      summary: "O feudalismo organizou a terra e a fidelidade: suserano cede o feudo, vassalo presta serviço militar, servo trabalha e paga tributos. A Igreja concentrava o poder cultural e ideológico. A partir do século XI, comércio e cidades reabrem e o sistema começa a rachar.",
+      formula: "Sociedade estamental: clero (oratores), nobreza (bellatores), servos (laboratores)\nAlta Idade Média (V–X): ruralização  ·  Baixa (XI–XV): renascimento comercial e urbano, Cruzadas, Peste Negra",
+      image: COMMONS("Tapisserie_de_Bayeux_31109.jpg"),
+      caption: "Tapeçaria de Bayeux, século XI: cavaleiros normandos."
+    },
+    "Grandes navegações": {
+      summary: "Portugal saiu na frente por centralização precoce, posição atlântica e experiência náutica. O motor foi econômico: acesso direto às especiarias sem os intermediários italianos e otomanos. O resultado foi a primeira economia de escala mundial — e o tráfico atlântico.",
+      formula: "1415 Ceuta  ·  1488 Bartolomeu Dias no Cabo da Boa Esperança\n1492 Colombo  ·  1494 Tratado de Tordesilhas  ·  1498 Vasco da Gama nas Índias  ·  1500 Cabral no Brasil",
+      image: COMMONS("Cantino_planisphere_(1502).jpg"),
+      caption: "Planisfério de Cantino (1502), um dos primeiros mapas do Brasil."
+    },
+    "Brasil colônia": {
+      summary: "A colonização foi de exploração: monocultura de exportação, latifúndio e trabalho escravizado, no pacto colonial que reservava o comércio à metrópole. Do pau-brasil ao açúcar e depois ao ouro, muda o produto e a região, mas a estrutura permanece.",
+      formula: "1500–1530 pré-colonial (pau-brasil)  ·  1530 capitanias hereditárias  ·  1548 Governo-Geral\nAçúcar (Nordeste, séc. XVI–XVII)  ·  Ouro (Minas, séc. XVIII)  ·  Inconfidência Mineira 1789",
+      image: COMMONS("Meirelles-primeiramissa2.jpg"),
+      caption: "\"Primeira Missa no Brasil\", de Victor Meirelles (1860)."
+    },
+    "Iluminismo e revoluções": {
+      summary: "O Iluminismo pôs razão, liberdade e igualdade jurídica no lugar do direito divino. Isso alimentou a Revolução Francesa e as independências americanas, enquanto a Revolução Industrial mudou a base material: máquina, fábrica e proletariado urbano.",
+      formula: "Locke: direitos naturais  ·  Montesquieu: três poderes  ·  Rousseau: contrato social\n1776 Independência dos EUA  ·  1789 Revolução Francesa  ·  1799 Napoleão",
+      image: COMMONS("Eugène_Delacroix_-_La_liberté_guidant_le_peuple.jpg"),
+      caption: "\"A Liberdade guiando o povo\", de Delacroix (1830)."
+    },
+    "Independência do Brasil": {
+      summary: "A vinda da Corte em 1808 já quebrou o pacto colonial na prática, com a abertura dos portos. A independência foi conduzida pela elite agrária para preservar escravidão e latifúndio — por isso saiu monarquia, e não república, e com pouca ruptura social.",
+      formula: "1808 Corte no Rio, abertura dos portos  ·  1815 Reino Unido a Portugal\n1821 Dia do Fico  ·  7/9/1822 Independência  ·  1824 Constituição outorgada (Poder Moderador)",
+      image: COMMONS("Pedro_Américo_-_Independência_ou_Morte_-_Google_Art_Project.jpg"),
+      caption: "\"Independência ou Morte\", de Pedro Américo (1888)."
+    },
+    "República brasileira": {
+      summary: "A República nasceu de um golpe militar, sem participação popular. A República Velha se sustentou na política dos governadores, no coronelismo e no voto de cabresto, com o café-com-leite alternando São Paulo e Minas até a crise de 1929 e a Revolução de 1930.",
+      formula: "1889 Proclamação  ·  1891 primeira Constituição republicana\nRevoltas: Canudos, Contestado, Vacina (1904), Tenentismo (1922)  ·  1930 fim da República Velha",
+      image: COMMONS("Proclamação_da_República_by_Benedito_Calixto_1893.jpg"),
+      caption: "A Proclamação da República, por Benedito Calixto (1893)."
+    },
+    "Era Vargas": {
+      summary: "Quinze anos em três fases: Provisório, Constitucional e Estado Novo (1937–45), este último ditatorial. Vargas industrializou, criou a CLT e o salário mínimo, e ao mesmo tempo censurou e reprimiu — o populismo trabalhista é exatamente essa combinação.",
+      formula: "1930–34 Governo Provisório  ·  1932 Revolução Constitucionalista  ·  1934–37 Constitucional\n1937–45 Estado Novo (DIP, censura)  ·  1943 CLT  ·  1951–54 volta pelo voto",
+      image: COMMONS("Getulio_Vargas_(1930)_(cropped).jpg"),
+      caption: "Getúlio Vargas em 1930, ao assumir o governo provisório."
+    },
+    "Guerras mundiais": {
+      summary: "A Primeira nasce do imperialismo, do nacionalismo e das alianças militares; a Segunda, em boa parte, das condições impostas em Versalhes somadas à crise de 1929, que abriu espaço para o nazifascismo. As duas aceleram a hegemonia dos EUA.",
+      formula: "1914–18 1ª Guerra  ·  1919 Tratado de Versalhes  ·  1929 Crise de 1929\n1939–45 2ª Guerra  ·  1945 Hiroshima e Nagasaki, criação da ONU",
+      image: COMMONS("Raising_the_Flag_on_Iwo_Jima,_larger_-_edit1.jpg"),
+      caption: "Iwo Jima, 1945: uma das imagens mais reproduzidas da guerra."
+    },
+    "Guerra Fria e mundo atual": {
+      summary: "Bipolaridade sem confronto direto entre EUA e URSS: a disputa acontece por conflitos periféricos, corrida armamentista e corrida espacial. Com a queda do Muro em 1989 e o fim da URSS em 1991, o mundo passa a uma ordem multipolar e globalizada.",
+      formula: "1947 Doutrina Truman e Plano Marshall  ·  1949 OTAN  ·  1955 Pacto de Varsóvia\n1961 Muro de Berlim  ·  1962 Crise dos Mísseis  ·  1989 queda do Muro  ·  1991 fim da URSS",
+      image: COMMONS("Berlinermauer.jpg"),
+      caption: "O Muro de Berlim, símbolo da divisão bipolar."
+    }
+  },
+  "Física": {
+    "Cinemática": {
+      summary: "Descreve o movimento sem perguntar a causa. O passo que resolve a questão é identificar se a velocidade é constante (MU) ou se há aceleração constante (MUV) e escolher a equação certa. Cuidado com unidades: 1 m/s = 3,6 km/h.",
+      formula: "MU: S = S₀ + v·t\nMUV: v = v₀ + a·t   ·   S = S₀ + v₀t + at²/2   ·   v² = v₀² + 2aΔS\nLançamento: horizontal e vertical são independentes; g ≈ 10 m/s²",
+      image: COMMONS("Ideal_projectile_motion_for_different_angles.svg"),
+      caption: "Lançamento oblíquo: alcance máximo a 45°."
+    },
+    "Leis de Newton": {
+      summary: "Inércia, F = ma e ação-reação. O erro clássico é somar ação e reação: elas atuam em corpos diferentes, nunca se anulam. Desenhar o diagrama de forças de cada corpo antes de escrever qualquer equação evita quase todos os enganos.",
+      formula: "1ª: sem força resultante, v constante   ·   2ª: F_R = m·a   ·   3ª: F_AB = −F_BA\nPeso: P = m·g   ·   Atrito: F_at = μ·N   ·   Centrípeta: F_c = mv²/R",
+      image: COMMONS("Free_body_diagram.svg"),
+      caption: "Diagrama de corpo livre: todas as forças sobre um bloco."
+    },
+    "Trabalho e energia": {
+      summary: "Trabalho é força vezes deslocamento na direção da força. Quando só forças conservativas atuam, a energia mecânica se conserva: o que a energia potencial perde, a cinética ganha. Com atrito, a diferença virou calor — e é exatamente isso que a questão pede.",
+      formula: "τ = F·d·cos θ   ·   E_c = mv²/2   ·   E_pg = mgh   ·   E_pe = kx²/2\nConservação: E_c1 + E_p1 = E_c2 + E_p2   ·   Potência: P = τ/Δt",
+      image: COMMONS("Simple_gravity_pendulum.svg"),
+      caption: "Pêndulo: troca contínua entre energia potencial e cinética."
+    },
+    "Hidrostática": {
+      summary: "A pressão em um líquido depende só da profundidade, não do formato do recipiente. Pascal diz que uma pressão aplicada se transmite integralmente (prensa hidráulica); Arquimedes diz que o empuxo é igual ao peso do líquido deslocado — daí flutuar ou afundar.",
+      formula: "p = p₀ + ρ·g·h   ·   Pascal: F₁/A₁ = F₂/A₂   ·   Arquimedes: E = ρ_líq·V_desl·g\nFlutua se ρ_corpo < ρ_líquido",
+      image: COMMONS("Communicating_vessels.svg"),
+      caption: "Vasos comunicantes: mesmo nível, independente do formato."
+    },
+    "Termologia e calorimetria": {
+      summary: "Temperatura mede agitação das partículas; calor é energia em trânsito por diferença de temperatura. Calor sensível muda a temperatura, calor latente muda o estado físico e ocorre a temperatura constante — é o que explica o patamar no gráfico de aquecimento.",
+      formula: "Q = m·c·ΔT (sensível)   ·   Q = m·L (latente)\nT_K = T_C + 273   ·   T_F = 1,8·T_C + 32\nDilatação: ΔL = L₀·α·ΔT",
+      image: COMMONS("Thermometer_CF.svg"),
+      caption: "Escalas Celsius e Fahrenheit lado a lado."
+    },
+    "Óptica geométrica": {
+      summary: "A luz anda em linha reta, reflete com ângulos iguais e refrata ao mudar de meio. Espelhos e lentes se resolvem com a mesma equação de Gauss; o que muda é a convenção de sinal. Imagem real se forma no cruzamento dos raios, virtual no prolongamento.",
+      formula: "Reflexão: i = r   ·   Snell: n₁·sen i = n₂·sen r\nGauss: 1/f = 1/p + 1/p'   ·   Aumento: A = −p'/p = i/o\nLente convergente f > 0; divergente f < 0",
+      image: COMMONS("Snells_law2.svg"),
+      caption: "Refração: o raio muda de direção ao trocar de meio."
+    },
+    "Ondulatória": {
+      summary: "Onda transporta energia, não matéria. Ao mudar de meio, a frequência nunca muda — quem muda é a velocidade e, junto, o comprimento de onda. Reflexão, refração, difração, interferência e efeito Doppler são os fenômenos cobrados.",
+      formula: "v = λ·f   ·   T = 1/f\nSom: mecânica e longitudinal, precisa de meio material\nLuz: eletromagnética e transversal, anda no vácuo (c = 3·10⁸ m/s)",
+      image: COMMONS("Wavelength.svg"),
+      caption: "Comprimento de onda, amplitude, crista e vale."
+    },
+    "Eletrostática": {
+      summary: "Cargas iguais se repelem, opostas se atraem, e a força cai com o quadrado da distância — dobrar a distância divide a força por quatro. Campo elétrico existe independentemente da carga de prova; potencial é energia por unidade de carga.",
+      formula: "Coulomb: F = k·|Q₁·Q₂|/d²   (k = 9·10⁹ N·m²/C²)\nCampo: E = F/q = k·Q/d²   ·   Potencial: V = k·Q/d   ·   W = q·(V_A − V_B)",
+      image: COMMONS("VFPt_charges_plus_minus_thumb.svg"),
+      caption: "Linhas de campo entre uma carga positiva e uma negativa."
+    },
+    "Eletrodinâmica (circuitos)": {
+      summary: "Em série a corrente é a mesma e as resistências somam; em paralelo a tensão é a mesma e a resistência equivalente cai. Reconhecer a associação antes de calcular resolve o circuito. Conta de consumo é potência vezes tempo, em kWh.",
+      formula: "U = R·i   ·   P = U·i = R·i² = U²/R\nSérie: R_eq = R₁ + R₂   ·   Paralelo: 1/R_eq = 1/R₁ + 1/R₂\nEnergia: E = P·Δt (kWh)",
+      image: COMMONS("Ohm's_Law_with_Voltage_source_TeX.svg"),
+      caption: "Lei de Ohm em um circuito simples."
+    },
+    "Eletromagnetismo": {
+      summary: "Corrente elétrica gera campo magnético e campo magnético variável gera corrente (indução de Faraday). Essa reciprocidade é a base de motores, geradores e transformadores. A regra da mão direita dá o sentido — vale treinar com a mão mesmo.",
+      formula: "Fio reto: B = μ₀i/(2πr)   ·   Força magnética: F = q·v·B·sen θ\nFaraday: ε = −ΔΦ/Δt   ·   Transformador: U₁/U₂ = N₁/N₂",
+      image: COMMONS("Manoderecha.svg"),
+      caption: "Regra da mão direita para o campo em torno de um fio."
+    }
+  },
+  "Química": {
+    "Estrutura atômica": {
+      summary: "O número atômico (prótons) define o elemento; o de massa soma prótons e nêutrons. Isótopos variam nêutrons, isóbaros têm mesma massa e isótonos mesmo número de nêutrons. A distribuição eletrônica por Linus Pauling entrega a camada de valência, que explica a reatividade.",
+      formula: "A = Z + N   ·   Íon: cátion perdeu elétron (+), ânion ganhou (−)\nOrdem de Pauling: 1s 2s 2p 3s 3p 4s 3d 4p 5s 4d 5p 6s 4f 5d 6p 7s 5f 6d",
+      image: COMMONS("Bohr-atom-PAR.svg"),
+      caption: "Modelo de Bohr: elétrons em níveis de energia definidos."
+    },
+    "Tabela periódica": {
+      summary: "Os elementos estão em ordem crescente de número atômico, e as propriedades se repetem periodicamente. Grupo (coluna) indica elétrons de valência; período (linha), o número de camadas. Raio atômico cresce para a esquerda e para baixo; eletronegatividade faz o contrário.",
+      formula: "Grupo 1: alcalinos  ·  2: alcalinoterrosos  ·  17: halogênios  ·  18: gases nobres\nEletronegatividade: F > O > N > Cl > Br > I > S > C > P > H",
+      image: COMMONS("Simple_Periodic_Table_Chart-en.svg"),
+      caption: "Tabela periódica com grupos e períodos."
+    },
+    "Ligações químicas": {
+      summary: "Iônica transfere elétrons (metal + ametal) e forma retículo cristalino; covalente compartilha (ametal + ametal); metálica é o mar de elétrons livres, o que explica condução e maleabilidade. Geometria e polaridade da molécula decorrem de onde estão os pares eletrônicos.",
+      formula: "Iônica: NaCl — sólida, alto ponto de fusão, conduz dissolvida\nCovalente: H₂O, CO₂  ·  Metálica: Fe, Cu — conduz no estado sólido\nApolar dissolve apolar; polar dissolve polar",
+      image: COMMONS("Sodium-chloride-3D-ionic.png"),
+      caption: "Retículo iônico do cloreto de sódio (NaCl)."
+    },
+    "Funções inorgânicas": {
+      summary: "Quatro funções: ácido libera H⁺, base libera OH⁻, sal vem da neutralização entre os dois e óxido é um composto binário com oxigênio. A escala de pH mede a concentração de H⁺ e é logarítmica — cada unidade é um fator de dez.",
+      formula: "Ácido + base → sal + água\npH < 7 ácido  ·  pH = 7 neutro  ·  pH > 7 básico   (pH = −log[H⁺])\nÓxido ácido + água → ácido (chuva ácida: SO₂, NOₓ)",
+      image: COMMONS("PH_scale.svg"),
+      caption: "Escala de pH, do ácido ao básico."
+    },
+    "Reações químicas": {
+      summary: "Toda reação precisa estar balanceada: mesma quantidade de átomos de cada elemento nos dois lados. Reconhecer o tipo de reação já indica o produto — síntese junta, análise separa, simples troca desloca um elemento, dupla troca troca os pares.",
+      formula: "Síntese: A + B → AB   ·   Análise: AB → A + B\nSimples troca: A + BC → AC + B   ·   Dupla troca: AB + CD → AD + CB\nBalanceamento: ajuste metais, depois ametais, depois H e O"
+    },
+    "Estequiometria": {
+      summary: "É regra de três com mol. O roteiro nunca muda: balancear a equação, converter tudo para mol, aplicar a proporção dos coeficientes e voltar para a unidade pedida. Quando há dois reagentes com quantidades dadas, ache o reagente limitante primeiro.",
+      formula: "1 mol = 6,02·10²³ partículas = massa molar em gramas\nCNTP: 1 mol de gás = 22,4 L\nn = m/M   ·   Rendimento = (real / teórico) × 100%"
+    },
+    "Soluções e concentração": {
+      summary: "Soluto se dissolve no solvente; a solubilidade é o limite dessa dissolução em dada temperatura, e por isso a curva de solubilidade responde se a solução está insaturada, saturada ou supersaturada. Diluir mantém a massa de soluto e muda só o volume.",
+      formula: "C = m₁/V (g/L)   ·   Molaridade: M = n₁/V (mol/L)\nDiluição: C₁V₁ = C₂V₂   ·   Mistura: C₁V₁ + C₂V₂ = C_f·V_f",
+      image: COMMONS("Solubility_curve_of_copper_sulfate.png"),
+      caption: "Curva de solubilidade: quanto dissolve a cada temperatura."
+    },
+    "Termoquímica": {
+      summary: "Reação exotérmica libera calor (ΔH < 0) e endotérmica absorve (ΔH > 0). A energia de ativação é a barreira que precisa ser vencida em qualquer um dos casos — catalisador diminui essa barreira, mas não altera o ΔH da reação.",
+      formula: "ΔH = H_produtos − H_reagentes\nExotérmica: ΔH < 0 (combustão)  ·  Endotérmica: ΔH > 0 (fotossíntese)\nHess: ΔH total independe do caminho",
+      image: COMMONS("Activation_energy.svg"),
+      caption: "Energia de ativação, com e sem catalisador."
+    },
+    "Química orgânica": {
+      summary: "O carbono faz quatro ligações e encadeia consigo mesmo — daí a variedade. A nomenclatura é montada por peças: prefixo (nº de carbonos) + infixo (tipo de ligação) + sufixo (função). Isomeria é quando a mesma fórmula molecular dá substâncias diferentes.",
+      formula: "met(1) et(2) prop(3) but(4) pent(5) hex(6)\nan = só simples  ·  en = dupla  ·  in = tripla\nFunções: álcool (-ol), aldeído (-al), cetona (-ona), ácido (-oico), éster, amina",
+      image: COMMONS("Benzene-2D-flat.png"),
+      caption: "Anel benzênico, base dos compostos aromáticos."
+    },
+    "Eletroquímica": {
+      summary: "Pilha converte reação espontânea em corrente; eletrólise faz o contrário, usando corrente para forçar a reação. Em ambas, oxidação ocorre no ânodo e redução no cátodo. O que muda é o sinal dos eletrodos e quem paga a conta energética.",
+      formula: "Oxidação: perde elétron (ânodo)  ·  Redução: ganha (cátodo)\nΔE = E_red(maior) − E_red(menor); pilha funciona se ΔE > 0\nCorrosão do ferro = oxidação espontânea",
+      image: COMMONS("Galvanic_cell_labeled.svg"),
+      caption: "Pilha galvânica: ânodo, cátodo e ponte salina."
     }
   }
 };
@@ -839,10 +1125,10 @@ function topicContentHtml(subject, topic) {
     <div class="topic-content-body">
       <p>${content.summary}</p>
       <pre class="topic-formula">${content.formula}</pre>
-      <figure>
+      ${content.image ? `<figure>
         <img src="${content.image}" alt="${escapeHtml(topic)}" loading="lazy" />
         <figcaption>${content.caption} <span>Wikimedia Commons</span></figcaption>
-      </figure>
+      </figure>` : ""}
     </div>
   </details>`;
 }
