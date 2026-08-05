@@ -44,6 +44,10 @@ const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID;
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 const TURNSTILE_SECRET = process.env.TURNSTILE_SECRET;
 
+// Status de assinatura que mantêm o acesso liberado. Ver o webhook para o
+// motivo de `past_due` estar aqui.
+const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "past_due"]);
+
 // Hash bcrypt fixo de um valor arbitrário. Usado para gastar o mesmo tempo de
 // verificação quando o e-mail não existe, evitando enumeração por timing.
 const DUMMY_PASSWORD_HASH = "$2b$10$UnO9bQFYZtCe7zbp82yzT.g9sPGzgiqTiHBB3gUv10Bdj/jH2fUFG";
@@ -139,6 +143,8 @@ function createRateLimiter({ windowMs, max, message }) {
 const loginLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 10, message: "Muitas tentativas. Tente novamente em alguns minutos." });
 const signupLimiter = createRateLimiter({ windowMs: 60 * 60 * 1000, max: 8, message: "Muitos cadastros a partir deste dispositivo. Tente mais tarde." });
 const checkoutLimiter = createRateLimiter({ windowMs: 60 * 60 * 1000, max: 20, message: "Muitas tentativas de pagamento. Aguarde um instante." });
+const forgotLimiter = createRateLimiter({ windowMs: 60 * 60 * 1000, max: 6, message: "Muitos pedidos de recuperação. Tente novamente mais tarde." });
+const resetLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 10, message: "Muitas tentativas. Tente novamente em alguns minutos." });
 
 // --- Proteção anti-robô (Cloudflare Turnstile) ------------------------------
 // No-op se TURNSTILE_SECRET não estiver configurado, para não travar o dev.
@@ -185,6 +191,60 @@ function mapProfile(row) {
     level: row.level || null,
     subjects: Array.isArray(row.subjects) ? row.subjects : []
   };
+}
+
+// --- Recuperação de senha ----------------------------------------------------
+// O token é assinado com SESSION_SECRET **mais o hash atual da senha**, então
+// redefinir a senha invalida sozinho todos os links pendentes: não precisa de
+// tabela nem coluna para marcar token usado.
+const RESET_MAX_AGE_MS = 60 * 60 * 1000;
+
+// O nome do usuário entra no corpo do e-mail (HTML): escapa antes de interpolar.
+const escapeHtml = (value) =>
+  String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+
+function createResetToken(userId, passwordHash) {
+  const payload = Buffer.from(JSON.stringify({ id: userId, exp: Date.now() + RESET_MAX_AGE_MS })).toString("base64url");
+  return `${payload}.${sign(`reset:${payload}:${passwordHash}`)}`;
+}
+
+// Lê o id sem confiar nele ainda: é só para buscar o hash e então conferir a
+// assinatura em resetSignatureMatches.
+function parseResetToken(token) {
+  if (typeof token !== "string" || !token || token.length > 500) return null;
+  const [payload, signature] = token.split(".");
+  if (!payload || !signature) return null;
+  try {
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString());
+    if (!isPositiveInt(data.id) || !data.exp || data.exp < Date.now()) return null;
+    return { id: data.id, payload, signature };
+  } catch (error) {
+    return null;
+  }
+}
+
+function resetSignatureMatches(parsed, passwordHash) {
+  const expected = Buffer.from(sign(`reset:${parsed.payload}:${passwordHash}`));
+  const received = Buffer.from(parsed.signature);
+  return expected.length === received.length && crypto.timingSafeEqual(expected, received);
+}
+
+// Envio de e-mail pela API HTTP do Resend (sem SDK). Sem RESEND_API_KEY apenas
+// imprime o link no log, para o fluxo funcionar em dev sem configurar nada.
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const MAIL_FROM = process.env.MAIL_FROM || "StudyForge AI <onboarding@resend.dev>";
+
+async function sendEmail(to, subject, html) {
+  if (!RESEND_API_KEY) {
+    console.log(`[email não enviado: RESEND_API_KEY ausente]\npara: ${to}\nassunto: ${subject}\n${html}`);
+    return;
+  }
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: MAIL_FROM, to, subject, html })
+  });
+  if (!response.ok) throw new Error(`Resend respondeu ${response.status}: ${await response.text()}`);
 }
 
 const app = express();
@@ -234,7 +294,11 @@ app.post("/api/billing/webhook", express.raw({ type: "application/json" }), asyn
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
         const subscription = event.data.object;
-        const isActive = subscription.status === "active" || subscription.status === "trialing";
+        // `past_due` conta como ativo de propósito: a Stripe ainda está tentando
+        // cobrar (dunning) e cortar o acesso na primeira falha de cartão puniria
+        // quem só precisa atualizar o meio de pagamento. Quando ela desiste, o
+        // status vira `canceled`/`unpaid` e aí sim o acesso cai.
+        const isActive = ACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status);
         await pool.query(
           "UPDATE users SET plan = $1 WHERE stripe_subscription_id = $2",
           [isActive ? "plus" : "free", subscription.id]
@@ -320,6 +384,56 @@ app.post("/api/login", loginLimiter, verifyTurnstile, async (req, res) => {
   }
 });
 
+app.post("/api/password/forgot", forgotLimiter, verifyTurnstile, async (req, res) => {
+  const email = (req.body.email || "").trim().toLowerCase();
+  // A resposta é idêntica exista ou não a conta, para não permitir enumeração.
+  if (!isValidEmail(email)) return res.json({ ok: true });
+
+  try {
+    const result = await pool.query("SELECT id, name, password_hash FROM users WHERE email = $1", [email]);
+    const user = result.rows[0];
+    if (user) {
+      const link = `${FRONTEND_URL}/?reset=${encodeURIComponent(createResetToken(user.id, user.password_hash))}`;
+      await sendEmail(
+        email,
+        "Redefinir sua senha do StudyForge AI",
+        `<p>Olá, ${escapeHtml(user.name)}!</p>
+         <p>Recebemos um pedido para redefinir a senha da sua conta no StudyForge AI.</p>
+         <p><a href="${escapeHtml(link)}">Clique aqui para criar uma nova senha</a></p>
+         <p>O link expira em 1 hora e só pode ser usado uma vez. Se não foi você que pediu, ignore este e-mail: sua senha atual continua valendo.</p>`
+      );
+    }
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Erro ao enviar recuperação de senha:", error.message);
+    res.status(500).json({ error: "Não foi possível enviar o e-mail agora. Tente de novo em instantes." });
+  }
+});
+
+app.post("/api/password/reset", resetLimiter, async (req, res) => {
+  const password = req.body.password || "";
+  const parsed = parseResetToken(req.body.token);
+  const invalid = "Link inválido ou expirado. Peça um novo e-mail de recuperação.";
+  if (!parsed) return res.status(400).json({ error: invalid });
+  if (typeof password !== "string" || password.length < 6 || password.length > 200) {
+    return res.status(400).json({ error: "A senha deve ter entre 6 e 200 caracteres." });
+  }
+
+  try {
+    const result = await pool.query("SELECT id, password_hash FROM users WHERE id = $1", [parsed.id]);
+    const user = result.rows[0];
+    if (!user || !resetSignatureMatches(parsed, user.password_hash)) {
+      return res.status(400).json({ error: invalid });
+    }
+    const passwordHash = await bcrypt.hash(password, 10);
+    await pool.query("UPDATE users SET password_hash = $1 WHERE id = $2", [passwordHash, user.id]);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Erro ao redefinir a senha." });
+  }
+});
+
 app.get("/api/me", async (req, res) => {
   const userId = getAuthenticatedUserId(req);
   if (!userId) {
@@ -371,7 +485,9 @@ app.post("/api/billing/checkout", checkoutLimiter, async (req, res) => {
       customer_email: user.stripe_customer_id ? undefined : user.email,
       client_reference_id: String(user.id),
       line_items: [{ price: STRIPE_PRICE_ID, quantity: 1 }],
-      subscription_data: { trial_period_days: 7 },
+      subscription_data: { trial_period_days: 5 },
+      // Rótulo fixo deste fluxo, para comparar checkouts no Dashboard.
+      integration_identifier: "studyforge-plus-qkzvhrmt",
       success_url: `${FRONTEND_URL}/?checkout=success`,
       cancel_url: `${FRONTEND_URL}/?checkout=cancelled`
     });
@@ -382,6 +498,58 @@ app.post("/api/billing/checkout", checkoutLimiter, async (req, res) => {
     res.status(500).json({ error: "Erro ao iniciar o pagamento." });
   }
 });
+
+// Portal do cliente: página hospedada pela Stripe onde o assinante cancela,
+// troca o cartão e baixa faturas. Nada disso precisa de tela nossa.
+app.post("/api/billing/portal", checkoutLimiter, async (req, res) => {
+  const userId = getAuthenticatedUserId(req);
+  if (!userId) {
+    return res.status(401).json({ error: "Não autenticado." });
+  }
+  if (!stripe) {
+    return res.status(503).json({ error: "Pagamentos ainda não configurados." });
+  }
+
+  try {
+    const result = await pool.query("SELECT stripe_customer_id FROM users WHERE id = $1", [userId]);
+    const customerId = result.rows[0] && result.rows[0].stripe_customer_id;
+    // Sem customer no Stripe a conta nunca passou pelo checkout.
+    if (!customerId) {
+      return res.status(400).json({ error: "Não encontramos uma assinatura nesta conta." });
+    }
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${FRONTEND_URL}/`
+    });
+    res.json({ url: session.url });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Erro ao abrir o portal de assinatura." });
+  }
+});
+
+// --- Portão de pagamento -----------------------------------------------------
+// Só assinantes ativos (plan = 'plus', o que inclui os 5 dias de teste) leem ou
+// gravam dados de estudo. A checagem vive aqui porque bloquear apenas no front
+// é contornável pelo devtools. `/api/profile` fica de fora de propósito: o
+// cadastro precisa salvar o perfil antes de o usuário chegar ao checkout.
+async function requirePlus(req, res, next) {
+  const userId = getAuthenticatedUserId(req);
+  if (!userId) return res.status(401).json({ error: "Não autenticado." });
+  try {
+    const result = await pool.query("SELECT plan FROM users WHERE id = $1", [userId]);
+    if (!result.rows[0]) return res.status(401).json({ error: "Não autenticado." });
+    if (result.rows[0].plan !== "plus") return res.status(402).json({ error: "Assinatura necessária." });
+    next();
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Erro ao verificar sua assinatura." });
+  }
+}
+
+// Prefixos: cobre também /api/sessions/:id/toggle.
+app.use(["/api/dashboard", "/api/sessions", "/api/syllabus"], requirePlus);
 
 app.post("/api/profile", async (req, res) => {
   const userId = getAuthenticatedUserId(req);
@@ -618,6 +786,8 @@ app.use((error, req, res, next) => {
 });
 
 module.exports = app;
+// Expostos apenas para o autoteste em scripts/test-reset-token.js.
+module.exports.resetTokenInternals = { createResetToken, parseResetToken, resetSignatureMatches };
 
 // Só sobe o servidor quando executado direto (`node server.js`, Render/dev).
 // Na Vercel o mesmo app é chamado por pages/api/[...path].js como função.

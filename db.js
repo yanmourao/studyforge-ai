@@ -64,6 +64,13 @@ async function ensureSchema() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS study_time_end VARCHAR(5)`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS level VARCHAR(30)`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subjects JSONB`);
+  // Quem se cadastrou antes de o paywall existir (02/08/2026) mantém o acesso.
+  // ponytail: o corte é a data + nunca ter passado pelo Stripe; se um desses
+  // usuários assinar e cancelar, o stripe_customer_id impede o re-release.
+  await pool.query(`
+    UPDATE users SET plan = 'plus'
+    WHERE plan = 'free' AND stripe_customer_id IS NULL AND created_at < '2026-08-02'
+  `);
 }
 
 module.exports = pool;

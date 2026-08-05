@@ -49,6 +49,30 @@ const SYLLABUS_OVERRIDES = {
 const SYLLABUS_STATUS_WEIGHT = { mastered: 1, learning: 0.5, unknown: 0 };
 const SYLLABUS_STATUS_LABEL = { mastered: "Já domino", learning: "Estudando", unknown: "Não sei" };
 
+// Tópicos que aparecem com mais frequência no ENEM, para ganharem a tag
+// "cai muito" na ementa. A lista vem do padrão recorrente das provas (ENEM cobra
+// muito leitura de gráfico, porcentagem, ecologia e atualidades, e quase não
+// cobra trigonometria ou Idade Média) — é curadoria, não uma contagem questão
+// por questão. Mantenha ~5 por matéria: se tudo virar destaque, nada é destaque.
+const HIGH_FREQUENCY_TOPICS = {
+  "Matemática": ["Funções (afim, quadrática, exponencial)", "Geometria plana", "Probabilidade", "Estatística e gráficos", "Matemática financeira"],
+  "Português": ["Interpretação de texto", "Gêneros textuais", "Funções da linguagem", "Variação linguística", "Redação dissertativa-argumentativa"],
+  "Biologia": ["Citologia", "Genética", "Ecologia", "Fisiologia humana", "Microbiologia e doenças"],
+  "História": ["Iluminismo e revoluções", "República brasileira", "Era Vargas", "Guerras mundiais", "Guerra Fria e mundo atual"],
+  "Física": ["Cinemática", "Leis de Newton", "Trabalho e energia", "Termologia e calorimetria", "Eletrodinâmica (circuitos)"],
+  "Química": ["Reações químicas", "Estequiometria", "Soluções e concentração", "Química orgânica", "Eletroquímica"]
+};
+
+const HIGH_FREQUENCY_KEYS = new Set(
+  Object.entries(HIGH_FREQUENCY_TOPICS).flatMap(([subject, topics]) => topics.map((topic) => syllabusKey(subject, topic)))
+);
+
+// A curadoria acima é do ENEM; outras provas têm distribuição diferente, então a
+// tag só aparece para quem escolheu ENEM como objetivo.
+function isHighFrequency(subject, topic) {
+  return state.user.objective === "ENEM" && HIGH_FREQUENCY_KEYS.has(syllabusKey(subject, topic));
+}
+
 // Resumo de apoio por tópico, exibido dentro da ementa. Tópicos sem entrada
 // aqui (e os de SYLLABUS_OVERRIDES) simplesmente não mostram resumo; `image`
 // é opcional. As imagens vêm do Wikimedia Commons via Special:FilePath, que
@@ -627,8 +651,15 @@ function setUserLabels() {
   const isPlus = state.user.plan === "plus";
   const planLabelEl = $("#sidebar-plan-label");
   if (planLabelEl) planLabelEl.textContent = isPlus ? "Plano Plus" : "Plano gratuito";
-  const badgeEl = $("#tutor-badge");
-  if (badgeEl) badgeEl.textContent = isPlus ? "novo" : "plus";
+  // O mesmo botão vira "assinar" para quem ainda não tem assinatura.
+  const planButtonEl = $("#settings-plan-button");
+  if (planButtonEl) planButtonEl.textContent = isPlus ? "Gerenciar assinatura" : "Assinar";
+  const planNoteEl = $("#settings-plan-note");
+  if (planNoteEl) {
+    planNoteEl.textContent = isPlus
+      ? "Cancele, troque o cartão ou baixe suas faturas."
+      : "Ative sua assinatura para liberar o painel completo.";
+  }
 }
 
 function renderSchedule() {
@@ -680,6 +711,13 @@ function formatMinutes(totalMinutes) {
   return `${hours}h ${minutes}min`;
 }
 
+// Chave que agrupa as sessões de um dia. É SVG porque `border` só faz canto
+// arredondado, não a curva dupla com a ponta no meio. O viewBox é esticado sem
+// manter proporção (preserveAspectRatio="none") para acompanhar a altura do
+// grupo; `vector-effect="non-scaling-stroke"` mantém a espessura do traço igual
+// mesmo esticado, senão a linha engrossaria junto.
+const DAY_BRACE_SVG = `<svg class="week-day-brace" viewBox="0 0 12 100" preserveAspectRatio="none" aria-hidden="true"><path d="M10 1C6 1 6 6 6 12L6 40C6 46 5 48 1 50C5 52 6 54 6 60L6 88C6 94 6 99 10 99" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke" /></svg>`;
+
 function subjectTagClass(subject) {
   const classes = { "Matemática": "", "Português": "mint-session", "Biologia": "lilac-session", "História": "mint-session", "Física": "lilac-session", "Química": "mint-session" };
   return classes[subject] || "";
@@ -711,21 +749,24 @@ function renderWeekPlan() {
   const windowMinutes = Math.min(minutesBetween(startTime, endTime), 720);
   const today = new Date();
   const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
-  const weekdayFormatter = new Intl.DateTimeFormat("pt-BR", { weekday: "long" });
 
   // Fila de tópicos pendentes por matéria e um cursor para não repetir dia a dia.
   const queues = {};
   const cursors = {};
   subjects.forEach((subject) => { queues[subject] = pendingQueue(subject); cursors[subject] = 0; });
-  const nextSession = (subject, time, fallbackDetail) => {
+  // Tópico e intenção voltam separados para o cartão poder destacar o tópico
+  // (o que a pessoa vai estudar) e jogar a intenção numa etiqueta discreta.
+  const nextSession = (subject, time, fallbackIntent) => {
     const queue = queues[subject] || [];
-    let detail = fallbackDetail;
+    let topic = "";
+    let intent = fallbackIntent;
     if (queue.length) {
       const item = queue[cursors[subject] % queue.length];
       cursors[subject] += 1;
-      detail = `${escapeHtml(item.topic)} · ${topicIntent(item.status)}`;
+      topic = escapeHtml(item.topic);
+      intent = topicIntent(item.status);
     }
-    return { time, subject, detail, className: subjectTagClass(subject) };
+    return { time, subject, topic, intent, className: subjectTagClass(subject) };
   };
 
   // Preenche toda a janela livre com blocos de estudo (~1h cada). Se o tempo
@@ -744,14 +785,11 @@ function renderWeekPlan() {
   const breakAfter = breakMinutes ? Math.floor(studyBlocks.length / 2) : -1;
 
   let hasEmenta = false;
-  const html = Array.from({ length: 5 }, (_, dayIndex) => {
+  // Só hoje, amanhã e depois de amanhã: um plano curto é um plano que se cumpre.
+  const DAY_LABELS = ["Hoje", "Amanhã", "Depois de amanhã"];
+  const html = DAY_LABELS.map((label, dayIndex) => {
     const date = new Date(today);
     date.setDate(today.getDate() + dayIndex);
-    const label = dayIndex === 0
-      ? "Hoje"
-      : dayIndex === 1
-        ? "Amanhã"
-        : weekdayFormatter.format(date).replace(/^\p{L}/u, (letter) => letter.toUpperCase());
     const dateLabel = dateFormatter.format(date).replace(".", "");
 
     let cursor = startTime;
@@ -767,11 +805,16 @@ function renderWeekPlan() {
       }
     });
 
-    const rows = items.map((item) => item.type === "break"
-      ? `<div class="week-session break-session"><span class="time">${item.time}</span><strong>Descanso</strong><small>1h para recarregar</small></div>`
-      : `<div class="week-session ${item.className}"><span class="time">${item.time}</span><strong>${item.subject}</strong><small>${item.detail}</small></div>`
-    ).join("");
-    return `<article class="week-day ${dayIndex === 0 ? "today" : ""}"><div class="week-day-label"><strong>${label}</strong><span>${dateLabel}</span></div><div class="week-day-sessions">${rows}</div></article>`;
+    const rows = items.map((item) => {
+      if (item.type === "break") {
+        return `<div class="week-session break-session"><span class="time">${item.time}</span><div class="week-session-main"><strong>Descanso</strong></div><span class="week-session-intent">recarregar</span><span class="week-session-duration">${breakMinutes} min</span></div>`;
+      }
+      // O tópico é o título do cartão; a matéria vira etiqueta acima dele. Sem
+      // ementa preenchida não há tópico, então a matéria assume o título.
+      const kicker = item.topic ? `<span class="week-session-subject">${item.subject}</span>` : "";
+      return `<div class="week-session ${item.className}"><span class="time">${item.time}</span><div class="week-session-main">${kicker}<strong>${item.topic || item.subject}</strong></div><span class="week-session-intent">${item.intent}</span><span class="week-session-duration">${item.duration} min</span></div>`;
+    }).join("");
+    return `<article class="week-day ${dayIndex === 0 ? "today" : ""}"><div class="week-day-label"><strong>${label}</strong><span>${dateLabel}</span>${DAY_BRACE_SVG}</div><div class="week-day-sessions">${rows}</div></article>`;
   }).join("");
 
   list.innerHTML = html;
@@ -1033,6 +1076,12 @@ function applyDashboardData(data) {
 async function fetchDashboard() {
   try {
     const response = await fetch(`${API_BASE}/api/dashboard`, { credentials: "include" });
+    // 402: assinatura venceu no meio da sessão — volta para o paywall.
+    if (response.status === 402) {
+      state.user.plan = "free";
+      showScreen("paywall-screen");
+      return;
+    }
     if (!response.ok) return;
     const data = await response.json();
     applyDashboardData(data);
@@ -1138,7 +1187,10 @@ function syllabusRowHtml(subject, topic, current) {
   const options = ["unknown", "learning", "mastered"].map((status) =>
     `<button class="topic-option ${status} ${current === status ? "selected" : ""}" data-topic-status="${status}">${SYLLABUS_STATUS_LABEL[status]}</button>`
   ).join("");
-  return `<div class="syllabus-topic-row" data-topic="${safe}" data-status="${current}"><span class="syllabus-topic-name">${safe}</span><div class="topic-options">${options}</div>${topicContentHtml(subject, topic)}</div>`;
+  const frequencyTag = isHighFrequency(subject, topic)
+    ? `<span class="topic-frequency" title="Tema recorrente nas provas do ENEM">🔥 cai muito</span>`
+    : "";
+  return `<div class="syllabus-topic-row" data-topic="${safe}" data-status="${current}"><span class="syllabus-topic-name">${safe}${frequencyTag}</span><div class="topic-options">${options}</div>${topicContentHtml(subject, topic)}</div>`;
 }
 
 let editingSyllabusSubject = null;
@@ -1221,6 +1273,30 @@ function enterDashboard() {
   fetchSyllabus();
 }
 
+// Portão de pagamento no front. O bloqueio real é o requirePlus do servidor;
+// esta tela só evita mostrar um painel que não carregaria dados nenhum.
+function enterAppOrPaywall() {
+  if (state.user.plan !== "plus") {
+    showScreen("paywall-screen");
+    return;
+  }
+  enterDashboard();
+}
+
+// Relê o plano no servidor (usado ao voltar do Stripe e no botão "Verificar
+// novamente", para o caso do webhook chegar depois do redirect).
+async function refreshPlan() {
+  try {
+    const response = await fetch(`${API_BASE}/api/me`, { credentials: "include" });
+    if (!response.ok) return false;
+    const data = await response.json();
+    state.user.plan = data.plan || "free";
+    return state.user.plan === "plus";
+  } catch (error) {
+    return false;
+  }
+}
+
 function goToOnboarding() {
   showScreen("onboarding-screen");
   state.step = 1;
@@ -1229,21 +1305,24 @@ function goToOnboarding() {
   updateOnboardingProgress();
 }
 
-function goToLogin() {
+function goToLogin(step = "login-form") {
   showScreen("login-screen");
   $("#login-form").reset();
+  showLoginStep(step);
+}
+
+// Login, "esqueci a senha" e "nova senha" são três .form-step no mesmo card.
+function showLoginStep(formId) {
+  ["login-form", "forgot-form", "reset-form"].forEach((id) => {
+    $(`#${id}`).classList.toggle("active", id === formId);
+  });
 }
 
 function switchView(view) {
-  if (view === "tutor" && state.user.plan !== "plus") {
-    showToast("O Tutor IA é exclusivo do StudyForge Plus. Assine para desbloquear.");
-    $(".sidebar")?.classList.remove("sidebar-open");
-    return;
-  }
   state.currentView = view;
   $$("[data-view-panel]").forEach((panel) => panel.classList.toggle("active-view", panel.dataset.viewPanel === view));
   $$(".side-nav-item[data-view]").forEach((item) => item.classList.toggle("active", item.dataset.view === view));
-  const labels = { overview: "Visão geral", plan: "Meu plano", syllabus: "Minha ementa", tutor: "Tutor IA", progress: "Meu progresso" };
+  const labels = { overview: "Visão geral", plan: "Meu plano", syllabus: "Minha ementa", progress: "Meu progresso" };
   $("#breadcrumb-current").textContent = labels[view] || "Visão geral";
   $(".sidebar")?.classList.remove("sidebar-open");
 }
@@ -1338,6 +1417,26 @@ async function submitLogSession() {
   }
 }
 
+// Abre o portal da Stripe (cancelar, trocar cartão, faturas). Quem ainda não
+// assinou cai no checkout, porque não existe customer para gerenciar.
+async function openBillingPortal() {
+  if (state.user.plan !== "plus") {
+    startCheckout();
+    return;
+  }
+  try {
+    const response = await fetch(`${API_BASE}/api/billing/portal`, { method: "POST", credentials: "include" });
+    const data = await response.json();
+    if (!response.ok) {
+      showToast(data.error || "Não foi possível abrir o portal de assinatura.");
+      return;
+    }
+    window.location.href = data.url;
+  } catch (error) {
+    showToast("Não foi possível conectar ao servidor.");
+  }
+}
+
 async function startCheckout() {
   try {
     const response = await fetch(`${API_BASE}/api/billing/checkout`, { method: "POST", credentials: "include" });
@@ -1361,38 +1460,6 @@ function showToast(message) {
   toastTimer = setTimeout(() => toast.classList.remove("show"), 3000);
 }
 
-function addChatMessage(text, kind = "tutor") {
-  const messages = $("#chat-messages");
-  const message = document.createElement("div");
-  message.className = `chat-message ${kind === "user" ? "user-message" : "tutor-message"}`;
-  if (kind === "user") {
-    message.style.alignSelf = "flex-end";
-    message.innerHTML = `<div><p style="background:var(--coral);color:#fff;border-radius:11px 3px 11px 11px">${text}</p><small style="display:block;text-align:right">agora</small></div>`;
-  } else {
-    message.innerHTML = `<span class="message-avatar">✦</span><div><p>${text}</p><small>agora</small></div>`;
-  }
-  const suggestions = $(".suggestion-row", messages);
-  messages.insertBefore(message, suggestions || null);
-  messages.scrollTop = messages.scrollHeight;
-}
-
-function tutorReply(prompt) {
-  const lower = prompt.toLowerCase();
-  if (lower.includes("quadrática")) return "Função quadrática é uma função cujo gráfico forma uma parábola. Pense nela como uma curva que pode abrir para cima ou para baixo: <strong>f(x) = ax² + bx + c</strong>. Quer praticar com um exemplo?";
-  if (lower.includes("quiz") || lower.includes("questões")) return "Boa! Preparei um desafio rápido: se <strong>f(x) = x² − 4x + 3</strong>, quais são as raízes? Responda e eu corrijo com você.";
-  if (lower.includes("revis")) return "Para hoje, faça uma revisão ativa: 10 minutos de resumo sem consultar, 20 minutos de questões e 5 minutos explicando o tema em voz alta. Começamos por Matemática?";
-  if (lower.includes("ponto fraco")) return "Pelo seu histórico recente, Biologia é a matéria que mais pede atenção. Sugiro 30 minutos de ecologia hoje e uma revisão curta amanhã.";
-  if (lower.includes("resumo")) return "Posso transformar qualquer tema em um resumo de uma página. Me diga o assunto e o nível de profundidade que você quer.";
-  return "Entendi. Vamos deixar isso mais simples juntos. Você prefere uma explicação passo a passo, um exemplo resolvido ou algumas questões para praticar?";
-}
-
-function submitTutor(prompt) {
-  const cleanPrompt = prompt.trim();
-  if (!cleanPrompt) return;
-  addChatMessage(cleanPrompt, "user");
-  setTimeout(() => addChatMessage(tutorReply(cleanPrompt)), 450);
-}
-
 document.addEventListener("click", async (event) => {
   const actionTarget = event.target.closest("[data-action]");
   const viewTarget = event.target.closest("[data-view-target]");
@@ -1405,6 +1472,8 @@ document.addEventListener("click", async (event) => {
     if (action === "start") goToOnboarding();
     if (action === "login") goToLogin();
     if (action === "goto-login") goToLogin();
+    if (action === "forgot-password") showLoginStep("forgot-form");
+    if (action === "back-to-login") goToLogin();
     if (action === "back-landing") showScreen("landing-screen");
     if (action === "next-step") {
       if (state.step === 1) {
@@ -1428,13 +1497,18 @@ document.addEventListener("click", async (event) => {
       }
       saveProfile();
       $(".form-card").classList.add("is-generating");
-      setTimeout(enterDashboard, 1900);
+      setTimeout(enterAppOrPaywall, 1900);
     }
     if (action === "demo") {
       $("#features").scrollIntoView({ behavior: "smooth" });
       showToast("Este é o jeito StudyForge de organizar sua rotina.");
     }
     if (action === "upgrade") startCheckout();
+    if (action === "manage-subscription") openBillingPortal();
+    if (action === "refresh-plan") {
+      if (await refreshPlan()) enterDashboard();
+      else showToast("Ainda não vemos uma assinatura ativa nesta conta.");
+    }
     if (action === "regenerate") openPlanModal();
     if (action === "close-plan-modal") closePlanModal();
     if (action === "save-plan") savePlanFromModal();
@@ -1493,11 +1567,6 @@ document.addEventListener("click", async (event) => {
     }
   }
 
-  const promptTarget = event.target.closest("[data-prompt]");
-  if (promptTarget) {
-    switchView("tutor");
-    submitTutor(promptTarget.dataset.prompt);
-  }
 });
 
 $("#login-form").addEventListener("submit", async (event) => {
@@ -1514,7 +1583,74 @@ $("#login-form").addEventListener("submit", async (event) => {
   submitButton.disabled = true;
   const loggedIn = await loginUser(email, password);
   submitButton.disabled = false;
-  if (loggedIn) enterDashboard();
+  if (loggedIn) enterAppOrPaywall();
+});
+
+// Token do link de recuperação, lido da URL em handlePasswordResetLink().
+let resetToken = null;
+
+$("#forgot-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const submitButton = $("#forgot-form button[type=submit]");
+  const email = $("#forgot-email").value.trim();
+  if (!email) {
+    showToast("Informe o e-mail da sua conta.");
+    return;
+  }
+
+  submitButton.disabled = true;
+  try {
+    const response = await fetch(`${API_BASE}/api/password/forgot`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ email })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Erro ao enviar o e-mail.");
+    // Mensagem igual exista ou não a conta: o servidor não revela quem existe.
+    showToast("Se existir uma conta com esse e-mail, o link de recuperação já está a caminho.");
+    $("#forgot-form").reset();
+    goToLogin();
+  } catch (error) {
+    showToast(error.message);
+  }
+  submitButton.disabled = false;
+});
+
+$("#reset-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const submitButton = $("#reset-form button[type=submit]");
+  const password = $("#reset-password").value;
+  const confirmation = $("#reset-password-confirm").value;
+
+  if (password.length < 6) {
+    showToast("A nova senha precisa ter pelo menos 6 caracteres.");
+    return;
+  }
+  if (password !== confirmation) {
+    showToast("As duas senhas não são iguais.");
+    return;
+  }
+
+  submitButton.disabled = true;
+  try {
+    const response = await fetch(`${API_BASE}/api/password/reset`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ token: resetToken, password })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Erro ao redefinir a senha.");
+    resetToken = null;
+    $("#reset-form").reset();
+    goToLogin();
+    showToast("Senha redefinida! Entre com a nova senha.");
+  } catch (error) {
+    showToast(error.message);
+  }
+  submitButton.disabled = false;
 });
 
 $("#plan-modal").addEventListener("click", (event) => {
@@ -1564,13 +1700,6 @@ if (weeklyChartEl) {
   });
 }
 
-$("#chat-form").addEventListener("submit", (event) => {
-  event.preventDefault();
-  const input = $("#chat-input");
-  submitTutor(input.value);
-  input.value = "";
-});
-
 async function restoreSession() {
   try {
     const response = await fetch(`${API_BASE}/api/me`, { credentials: "include" });
@@ -1580,25 +1709,52 @@ async function restoreSession() {
     state.user.name = data.name;
     state.user.plan = data.plan || "free";
     applyProfile(data.profile);
-    enterDashboard();
+    enterAppOrPaywall();
     handleCheckoutRedirect();
   } catch (error) {
     // Sem conexão com o servidor: permanece na landing page.
   }
 }
 
-function handleCheckoutRedirect() {
+async function handleCheckoutRedirect() {
   const params = new URLSearchParams(window.location.search);
   const checkout = params.get("checkout");
-  if (!checkout) return;
-  if (checkout === "success") {
-    showToast(state.user.plan === "plus" ? "Assinatura confirmada! Bem-vindo ao StudyForge Plus." : "Pagamento recebido, confirmando sua assinatura...");
-  } else if (checkout === "cancelled") {
-    showToast("Assinatura não concluída.");
-  }
   params.delete("checkout");
   const newUrl = `${window.location.pathname}${params.toString() ? `?${params}` : ""}`;
   window.history.replaceState({}, "", newUrl);
+  if (!checkout) return;
+
+  if (checkout === "cancelled") {
+    showToast("Assinatura não concluída.");
+    return;
+  }
+  if (checkout !== "success") return;
+
+  // O webhook do Stripe pode chegar um instante depois deste redirect, então
+  // insistimos algumas vezes antes de desistir e pedir para recarregar.
+  showToast("Pagamento recebido, confirmando sua assinatura...");
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    if (await refreshPlan()) {
+      enterDashboard();
+      showToast("Assinatura confirmada! Bem-vindo ao StudyForge.");
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+  showToast("Ainda estamos confirmando seu pagamento. Recarregue a página em instantes.");
 }
 
-restoreSession();
+// Chegou por um link de recuperação: mostra o formulário de nova senha em vez
+// de restaurar a sessão (que jogaria direto no dashboard se o cookie existir).
+function handlePasswordResetLink() {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("reset");
+  if (!token) return false;
+  resetToken = token;
+  params.delete("reset");
+  window.history.replaceState({}, "", `${window.location.pathname}${params.toString() ? `?${params}` : ""}`);
+  goToLogin("reset-form");
+  return true;
+}
+
+if (!handlePasswordResetLink()) restoreSession();

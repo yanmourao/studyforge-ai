@@ -47,7 +47,14 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 # Opcionais de segurança
 ALLOWED_ORIGINS=https://yanmourao.github.io,https://outra-origem.com
 TURNSTILE_SECRET=0x...
+# Envio de e-mail (recuperação de senha)
+RESEND_API_KEY=re_...
+MAIL_FROM=StudyForge AI <nao-responda@seudominio.com>
 ```
+
+`RESEND_API_KEY` habilita o envio real do e-mail de recuperação de senha pela [API do Resend](https://resend.com/docs/api-reference/emails/send-email) (sem SDK, só `fetch`). **Sem a chave, nada quebra**: o link é impresso no log do servidor, o que basta para testar em dev. `MAIL_FROM` precisa de um domínio verificado no Resend; o padrão (`onboarding@resend.dev`) só entrega para o e-mail do dono da conta Resend.
+
+O link enviado aponta para `FRONTEND_URL/?reset=<token>`. O token é um HMAC de `SESSION_SECRET` + o hash atual da senha, com validade de 1 hora — por isso ele deixa de valer sozinho depois que a senha muda (uso único, sem tabela de tokens).
 
 `SESSION_SECRET` assina o cookie de sessão (login persistente) e agora é **obrigatório** (mínimo 16 caracteres) — o servidor recusa iniciar sem ele. Gere uma string aleatória, por exemplo com `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`.
 
@@ -96,8 +103,8 @@ node scripts/setup-db.js
 - Sessões de estudo reais na tabela `study_sessions`: marcar como concluída e adicionar sessão extra gravam no banco
 - Dashboard 100% orientado a dados reais do usuário: foco do dia, sequência de dias estudados, tempo estudado na semana, ritmo semanal, horas nos últimos 30 dias e domínio por matéria são todos calculados a partir das sessões registradas (sem números fixos de demonstração)
 - Visualização do plano semanal (sugestão gerada a partir das matérias escolhidas, com datas reais)
-- Tutor IA demonstrativo com respostas simuladas
+- Ementa por tópico com destaque 🔥 dos temas que mais caem no ENEM
 - Layout responsivo para desktop e celular
-- Assinatura paga (StudyForge Plus) via Stripe Checkout, com 7 dias de teste grátis, liberando o Tutor IA; webhook mantém o plano do usuário sincronizado no banco
+- Assinatura obrigatória via Stripe Checkout, com 5 dias de teste grátis: sem `plan = 'plus'` o dashboard não abre e as rotas de dados respondem 402. Cancelamento e troca de cartão pelo Customer Portal da Stripe (Configurações → Assinatura); webhook mantém o plano sincronizado no banco
 
-A integração real com API da OpenAI (tutor e geração de plano) pode ser adicionada sobre esta base.
+Não há tutor de IA: ele foi removido por só devolver respostas fixas. Uma integração real com LLM (tutor ou geração de plano) pode ser adicionada sobre esta base.

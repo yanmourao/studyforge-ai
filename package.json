@@ -9,7 +9,7 @@
     "start": "node server.js",
     "start:next": "next start -p 3001",
     "db:reset": "node scripts/setup-db.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node scripts/test-reset-token.js"
   },
   "repository": {
     "type": "git",
