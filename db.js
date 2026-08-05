@@ -56,6 +56,10 @@ async function ensureSchema() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS plan VARCHAR(20) NOT NULL DEFAULT 'free'`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255)`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(255)`);
+  // Data do último evento de assinatura aplicado. A Stripe não garante ordem de
+  // entrega, então o webhook usa isto para descartar evento mais antigo que o
+  // estado já gravado (senão um 'updated' atrasado rebaixa quem está ativo).
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_event_at TIMESTAMPTZ`);
   // Perfil de estudo persistido (antes vivia só no estado do front).
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS objective VARCHAR(50)`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS exam_days INTEGER`);

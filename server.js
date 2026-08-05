@@ -281,13 +281,21 @@ app.post("/api/billing/webhook", express.raw({ type: "application/json" }), asyn
     return res.status(400).send(`Webhook Error: ${error.message}`);
   }
 
+  // A Stripe entrega eventos sem garantia de ordem. Todo UPDATE abaixo só se
+  // aplica se este evento for mais recente que o último já gravado, senão uma
+  // entrega atrasada sobrescreve o estado atual com informação velha.
+  const eventAt = Number(event.created) || Math.floor(Date.now() / 1000);
+  const naoEMaisAntigo = (n) => `(subscription_event_at IS NULL OR subscription_event_at <= to_timestamp($${n}))`;
+
   try {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object;
         await pool.query(
-          "UPDATE users SET plan = 'plus', stripe_customer_id = $1, stripe_subscription_id = $2 WHERE id = $3",
-          [session.customer, session.subscription, session.client_reference_id]
+          `UPDATE users SET plan = 'plus', stripe_customer_id = $1, stripe_subscription_id = $2,
+                  subscription_event_at = to_timestamp($4)
+           WHERE id = $3 AND ${naoEMaisAntigo(4)}`,
+          [session.customer, session.subscription, session.client_reference_id, eventAt]
         );
         break;
       }
@@ -300,8 +308,9 @@ app.post("/api/billing/webhook", express.raw({ type: "application/json" }), asyn
         // status vira `canceled`/`unpaid` e aí sim o acesso cai.
         const isActive = ACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status);
         await pool.query(
-          "UPDATE users SET plan = $1 WHERE stripe_subscription_id = $2",
-          [isActive ? "plus" : "free", subscription.id]
+          `UPDATE users SET plan = $1, subscription_event_at = to_timestamp($3)
+           WHERE stripe_subscription_id = $2 AND ${naoEMaisAntigo(3)}`,
+          [isActive ? "plus" : "free", subscription.id, eventAt]
         );
         break;
       }
