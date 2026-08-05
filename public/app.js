@@ -73,6 +73,58 @@ function isHighFrequency(subject, topic) {
   return state.user.objective === "ENEM" && HIGH_FREQUENCY_KEYS.has(syllabusKey(subject, topic));
 }
 
+// Dificuldade por tópico, agrupada por nível para ser fácil de reordenar. O
+// critério é carga conceitual e abstração — o que costuma travar estudante —,
+// não índice de acerto medido: é curadoria, igual à lista de frequência acima.
+// Vale para a ementa base (ENEM e afins); tópicos de SYLLABUS_OVERRIDES, como
+// os do SAT, ficam sem etiqueta.
+const TOPIC_DIFFICULTY = {
+  "Matemática": {
+    facil: ["Estatística e gráficos", "Matemática financeira"],
+    medio: ["Funções (afim, quadrática, exponencial)", "Progressões (PA e PG)", "Geometria plana", "Probabilidade"],
+    dificil: ["Logaritmos", "Geometria espacial", "Trigonometria", "Análise combinatória"]
+  },
+  "Português": {
+    facil: ["Gêneros textuais", "Figuras de linguagem", "Variação linguística"],
+    medio: ["Interpretação de texto", "Funções da linguagem", "Concordância verbal e nominal"],
+    dificil: ["Sintaxe (período e oração)", "Regência", "Crase", "Redação dissertativa-argumentativa"]
+  },
+  "Biologia": {
+    facil: ["Evolução", "Ecologia", "Microbiologia e doenças"],
+    medio: ["Citologia", "Fisiologia humana", "Zoologia", "Biotecnologia"],
+    dificil: ["Bioquímica celular", "Genética", "Botânica"]
+  },
+  "História": {
+    facil: ["Grandes navegações", "Guerras mundiais"],
+    medio: ["Antiguidade clássica", "Idade Média", "Brasil colônia", "Independência do Brasil", "Era Vargas", "Guerra Fria e mundo atual"],
+    dificil: ["Iluminismo e revoluções", "República brasileira"]
+  },
+  "Física": {
+    facil: ["Cinemática"],
+    medio: ["Leis de Newton", "Trabalho e energia", "Hidrostática", "Termologia e calorimetria", "Eletrodinâmica (circuitos)"],
+    dificil: ["Óptica geométrica", "Ondulatória", "Eletrostática", "Eletromagnetismo"]
+  },
+  "Química": {
+    facil: ["Estrutura atômica", "Tabela periódica"],
+    medio: ["Ligações químicas", "Funções inorgânicas", "Reações químicas", "Soluções e concentração"],
+    dificil: ["Estequiometria", "Termoquímica", "Química orgânica", "Eletroquímica"]
+  }
+};
+
+const TOPIC_DIFFICULTY_LABEL = { facil: "fácil", medio: "médio", dificil: "difícil" };
+
+const TOPIC_DIFFICULTY_KEYS = new Map();
+Object.entries(TOPIC_DIFFICULTY).forEach(([subject, levels]) => {
+  Object.entries(levels).forEach(([level, topics]) => {
+    topics.forEach((topic) => TOPIC_DIFFICULTY_KEYS.set(syllabusKey(subject, topic), level));
+  });
+});
+
+// "" quando o tópico não está classificado (custom do aluno, SAT, etc.).
+function topicDifficulty(subject, topic) {
+  return TOPIC_DIFFICULTY_KEYS.get(syllabusKey(subject, topic)) || "";
+}
+
 // Resumo de apoio por tópico, exibido dentro da ementa. Tópicos sem entrada
 // aqui (e os de SYLLABUS_OVERRIDES) simplesmente não mostram resumo; `image`
 // é opcional. As imagens vêm do Wikimedia Commons via Special:FilePath, que
@@ -1190,7 +1242,11 @@ function syllabusRowHtml(subject, topic, current) {
   const frequencyTag = isHighFrequency(subject, topic)
     ? `<span class="topic-frequency" title="Tema recorrente nas provas do ENEM">🔥 cai muito</span>`
     : "";
-  return `<div class="syllabus-topic-row" data-topic="${safe}" data-status="${current}"><span class="syllabus-topic-name">${safe}${frequencyTag}</span><div class="topic-options">${options}</div>${topicContentHtml(subject, topic)}</div>`;
+  const level = topicDifficulty(subject, topic);
+  const levelTag = level
+    ? `<span class="topic-level topic-level-${level}" title="Dificuldade estimada do conteúdo">${TOPIC_DIFFICULTY_LABEL[level]}</span>`
+    : "";
+  return `<div class="syllabus-topic-row" data-topic="${safe}" data-status="${current}"><span class="syllabus-topic-name">${safe}${levelTag}${frequencyTag}</span><div class="topic-options">${options}</div>${topicContentHtml(subject, topic)}</div>`;
 }
 
 let editingSyllabusSubject = null;

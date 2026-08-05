@@ -103,7 +103,7 @@ node scripts/setup-db.js
 - Sessões de estudo reais na tabela `study_sessions`: marcar como concluída e adicionar sessão extra gravam no banco
 - Dashboard 100% orientado a dados reais do usuário: foco do dia, sequência de dias estudados, tempo estudado na semana, ritmo semanal, horas nos últimos 30 dias e domínio por matéria são todos calculados a partir das sessões registradas (sem números fixos de demonstração)
 - Visualização do plano semanal (sugestão gerada a partir das matérias escolhidas, com datas reais)
-- Ementa por tópico com destaque 🔥 dos temas que mais caem no ENEM
+- Ementa por tópico com destaque 🔥 dos temas que mais caem no ENEM e etiqueta de dificuldade (fácil / médio / difícil)
 - Layout responsivo para desktop e celular
 - Assinatura obrigatória via Stripe Checkout, com 5 dias de teste grátis: sem `plan = 'plus'` o dashboard não abre e as rotas de dados respondem 402. Cancelamento e troca de cartão pelo Customer Portal da Stripe (Configurações → Assinatura); webhook mantém o plano sincronizado no banco
 
