@@ -508,6 +508,37 @@ app.post("/api/billing/checkout", checkoutLimiter, async (req, res) => {
   }
 });
 
+// Preço exibido no paywall. Vem da Stripe em vez de ficar escrito no HTML para
+// não divergir do que é realmente cobrado — preço errado numa tela de pagamento
+// é problema de consumidor, não detalhe. Cache no processo: preço muda raramente.
+let cachedPrice = null;
+app.get("/api/billing/price", async (req, res) => {
+  if (!getAuthenticatedUserId(req)) {
+    return res.status(401).json({ error: "Não autenticado." });
+  }
+  if (cachedPrice) {
+    return res.json(cachedPrice);
+  }
+  if (!stripe || !STRIPE_PRICE_ID) {
+    return res.status(503).json({ error: "Pagamentos ainda não configurados." });
+  }
+
+  try {
+    const price = await stripe.prices.retrieve(STRIPE_PRICE_ID);
+    cachedPrice = {
+      amount: price.unit_amount,
+      currency: price.currency,
+      interval: price.recurring ? price.recurring.interval : null
+    };
+    res.json(cachedPrice);
+  } catch (error) {
+    // Falta de permissão `Prices > Read` na chave cai aqui. O front trata
+    // omitindo o preço, nunca inventando um.
+    console.error("Erro ao ler o preço na Stripe:", error.message);
+    res.status(502).json({ error: "Não foi possível ler o preço." });
+  }
+});
+
 // Portal do cliente: página hospedada pela Stripe onde o assinante cancela,
 // troca o cartão e baixa faturas. Nada disso precisa de tela nossa.
 app.post("/api/billing/portal", checkoutLimiter, async (req, res) => {

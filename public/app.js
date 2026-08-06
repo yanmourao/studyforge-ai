@@ -1334,9 +1334,35 @@ function enterDashboard() {
 function enterAppOrPaywall() {
   if (state.user.plan !== "plus") {
     showScreen("paywall-screen");
+    renderPaywallPrice();
     return;
   }
   enterDashboard();
+}
+
+// Busca o preço na Stripe em vez de deixá-lo escrito no HTML, para a tela não
+// anunciar um valor diferente do que é cobrado. Se não vier, o parágrafo fica
+// vazio (e some pelo `:empty` do CSS): sem preço é melhor que preço errado.
+const PRICE_INTERVAL_LABEL = { day: "dia", week: "semana", month: "mês", year: "ano" };
+async function renderPaywallPrice() {
+  const el = $("#paywall-price");
+  if (!el || el.textContent.trim()) return;
+  try {
+    const response = await fetch(`${API_BASE}/api/billing/price`, { credentials: "include" });
+    if (!response.ok) return;
+    const data = await response.json();
+    if (typeof data.amount !== "number") return;
+    const valor = new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: (data.currency || "brl").toUpperCase()
+    }).format(data.amount / 100);
+    const periodo = PRICE_INTERVAL_LABEL[data.interval];
+    el.innerHTML = periodo
+      ? `Depois do teste: <strong>${valor}</strong> por ${periodo}, cancele quando quiser.`
+      : `Valor: <strong>${valor}</strong>.`;
+  } catch (error) {
+    // Rede fora: melhor não mostrar preço nenhum.
+  }
 }
 
 // Relê o plano no servidor (usado ao voltar do Stripe e no botão "Verificar
