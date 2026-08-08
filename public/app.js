@@ -22,9 +22,19 @@ const state = {
     subjects: []
   },
   sessions: [],
+  // Blocos de estudo previstos para hoje, preenchido por renderWeekPlan().
+  todayPlan: [],
   // Domínio de cada tópico da ementa: chave "Matéria|||Tópico" -> status
   // ("unknown" | "learning" | "mastered").
-  syllabus: {}
+  syllabus: {},
+  // Duração escolhida para o bloco de cada tópico: mesma chave, valor em minutos.
+  // Sem entrada aqui, o plano usa TOPIC_MINUTES_DEFAULT.
+  topicMinutes: {},
+  // Tópicos com 2h+ de estudo ainda em "Não sei", vindos do dashboard, e os que
+  // a pessoa dispensou nesta visita (o servidor segue mandando enquanto o
+  // estado não mudar; sem isso a notificação voltaria a cada sessão marcada).
+  studyAlerts: [],
+  dismissedAlerts: new Set()
 };
 
 // Ementa de referência por matéria (conteúdos típicos de prova).
@@ -491,24 +501,53 @@ function syllabusKey(subject, topic) {
   return `${subject}|||${topic}`;
 }
 
+// Matérias que entram no plano. Fonte única: o que a pessoa escolheu no
+// cadastro. Sem escolha salva (contas antigas), o par com que o plano começa.
+const planSubjects = () => state.user.subjects.length ? state.user.subjects : ["Matemática", "Português"];
+
+// Duração padrão do bloco de um tópico no plano, quando a pessoa não mudou.
+const TOPIC_MINUTES_DEFAULT = 60;
+const TOPIC_MINUTES_MIN = 15;
+const TOPIC_MINUTES_MAX = 240;
+
+// Sempre dentro da faixa: é isso que garante que o plano termine de montar
+// (bloco de 0 minuto deixaria o preenchimento do dia em laço infinito).
+function topicMinutes(subject, topic) {
+  const valor = Number(state.topicMinutes[syllabusKey(subject, topic)]) || TOPIC_MINUTES_DEFAULT;
+  return Math.min(TOPIC_MINUTES_MAX, Math.max(TOPIC_MINUTES_MIN, Math.round(valor)));
+}
+
+// Excluir um tópico grava status "removed" em vez de apagar a linha: os tópicos
+// da base vêm de uma constante, então uma linha apagada voltaria no próximo load.
+const isRemoved = (subject, topic) => state.syllabus[syllabusKey(subject, topic)] === "removed";
+
 // Tópicos "oficiais" da matéria para o objetivo atual (com override por prova).
 function baseTopics(subject) {
   const override = (SYLLABUS_OVERRIDES[state.user.objective] || {})[subject];
-  return override || SYLLABUS[subject] || [];
+  return (override || SYLLABUS[subject] || []).filter((topic) => !isRemoved(subject, topic));
 }
 
 // Tópicos que o próprio aluno adicionou (existem em state.syllabus mas não na base).
 function customTopics(subject) {
-  const base = new Set(baseTopics(subject));
+  const override = (SYLLABUS_OVERRIDES[state.user.objective] || {})[subject];
+  const base = new Set(override || SYLLABUS[subject] || []);
   const prefix = `${subject}|||`;
   return Object.keys(state.syllabus)
     .filter((key) => key.startsWith(prefix))
     .map((key) => key.slice(prefix.length))
-    .filter((topic) => !base.has(topic));
+    .filter((topic) => !base.has(topic) && !isRemoved(subject, topic));
 }
 
 function topicsForSubject(subject) {
   return [...baseTopics(subject), ...customTopics(subject)];
+}
+
+// Excluídos, para o editor poder restaurar. Inclui os da base e os próprios.
+function removedTopics(subject) {
+  const prefix = `${subject}|||`;
+  return Object.keys(state.syllabus)
+    .filter((key) => key.startsWith(prefix) && state.syllabus[key] === "removed")
+    .map((key) => key.slice(prefix.length));
 }
 
 function subjectMastery(subject) {
@@ -714,12 +753,105 @@ function setUserLabels() {
   }
 }
 
+// Painel de "Meu progresso": lista os blocos previstos para hoje e deixa a
+// pessoa confirmar o que já estudou. Reusa a marcação de .schedule-item, então
+// o handler de clique já existente atende os dois casos: bloco já confirmado
+// tem data-session-id e alterna (desmarca); bloco só previsto não tem, e o
+// clique grava a sessão como concluída.
+function renderTodayCheck() {
+  const list = $("#today-check-list");
+  if (!list) return;
+
+  // Casa por matéria+horário e NÃO por `completed`: uma sessão desmarcada
+  // continua existindo, e a linha precisa do id dela para o próximo clique
+  // alternar em vez de criar outra. Era isso que duplicava sessões e derrubava
+  // a porcentagem a cada ciclo de desmarcar/marcar.
+  const sessaoDe = (item) => state.sessions.find(
+    (session) => session.subject === item.subject && session.time === item.time
+  );
+
+  // Sessões de hoje que não correspondem a nenhum bloco do plano: é o estudo
+  // extra, registrado pelo botão. Sempre tem id, então o clique alterna.
+  const extras = state.sessions.filter((session) => !state.todayPlan.some(
+    (item) => item.subject === session.subject && item.time === session.time
+  ));
+
+  if (!state.todayPlan.length && !extras.length) {
+    list.innerHTML = `<p class="empty-state-text">Escolha suas matérias no plano, ou registre um estudo extra, para acompanhar seu dia aqui.</p>`;
+    $("#today-check-summary").textContent = "";
+    return;
+  }
+
+  const extraRows = extras.map((session) => `<div class="schedule-item ${session.completed ? "completed" : ""}" data-session-id="${session.id}">
+      <button class="schedule-check" aria-label="${session.completed ? "Desmarcar" : "Confirmar"} ${escapeHtml(session.subject)}">${session.completed ? "✓" : ""}</button>
+      <span class="schedule-time">${session.time}</span>
+      <span class="schedule-copy"><strong>${escapeHtml(session.detail || session.subject)}</strong><small>${escapeHtml(session.subject)} · ${session.duration}</small></span>
+      <span class="schedule-tag ${session.tagClass}">${escapeHtml(session.tag)}</span>
+    </div>`).join("");
+
+  const plannedRows = state.todayPlan.map((item) => {
+    const session = sessaoDe(item);
+    const concluida = Boolean(session && session.completed);
+    const rotulo = escapeHtml(item.topic || item.subject);
+    return `<div class="schedule-item ${concluida ? "completed" : ""}"
+      ${session ? `data-session-id="${session.id}"` : ""}
+      data-subject="${escapeHtml(item.subject)}" data-time="${item.time}"
+      data-detail="${escapeHtml(item.topic || item.intent)}" data-duration="${item.duration}">
+      <button class="schedule-check" aria-label="${concluida ? "Desmarcar" : "Confirmar"} ${escapeHtml(item.subject)}">${concluida ? "✓" : ""}</button>
+      <span class="schedule-time">${item.time}</span>
+      <span class="schedule-copy"><strong>${rotulo}</strong><small>${escapeHtml(item.subject)} · ${item.duration} min</small></span>
+      <span class="schedule-tag ${item.className}">${concluida ? "estudei" : "confirmar"}</span>
+    </div>`;
+  }).join("");
+
+  // Previstos primeiro (é o que exige ação), extras depois (já foram feitos).
+  list.innerHTML = plannedRows + extraRows;
+
+  const feitos = state.todayPlan.filter((item) => {
+    const s = sessaoDe(item);
+    return s && s.completed;
+  }).length;
+  const total = state.todayPlan.length;
+  const extrasFeitos = extras.filter((session) => session.completed).length;
+  const sufixo = extrasFeitos ? ` +${extrasFeitos} extra${extrasFeitos === 1 ? "" : "s"}.` : "";
+  $("#today-check-summary").textContent = total
+    ? (feitos === total ? `Dia completo: ${total} de ${total}.${sufixo}` : `${feitos} de ${total} confirmados hoje.${sufixo}`)
+    : `${extrasFeitos} estudo${extrasFeitos === 1 ? "" : "s"} extra registrado${extrasFeitos === 1 ? "" : "s"} hoje.`;
+}
+
+// Grava um bloco previsto como estudado. O servidor já aceita `completed`.
+async function confirmPlannedSession(dataset) {
+  try {
+    const response = await fetch(`${API_BASE}/api/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        subject: dataset.subject,
+        detail: dataset.detail || "",
+        time: dataset.time,
+        duration: Number(dataset.duration) || 60,
+        tag: "Estudo",
+        completed: true
+      })
+    });
+    if (!response.ok) throw new Error("create failed");
+    await fetchDashboard();
+    showToast(`Boa! ${dataset.subject} marcada como estudada.`);
+  } catch (error) {
+    showToast("Não foi possível registrar agora.");
+  }
+}
+
 function renderSchedule() {
   const list = $("#schedule-list");
   if (!list) return;
+  // Destaca a próxima sessão pendente. Antes era `index === 2` fixo, herdado do
+  // mockup: destacava sempre a terceira linha, qualquer que fosse a matéria.
+  const proximaIndex = state.sessions.findIndex((session) => !session.completed);
   list.innerHTML = state.sessions.length
     ? state.sessions.map((session, index) => `
-      <div class="schedule-item ${session.completed ? "completed" : ""} ${!session.completed && index === 2 ? "active-item" : ""}" data-session-id="${session.id}">
+      <div class="schedule-item ${session.completed ? "completed" : ""} ${index === proximaIndex ? "active-item" : ""}" data-session-id="${session.id}">
         <button class="schedule-check" aria-label="Marcar ${session.subject} como concluído">${session.completed ? "✓" : ""}</button>
         <span class="schedule-time">${session.time}</span>
         <span class="schedule-copy"><strong>${session.subject}</strong><small>${session.detail}</small></span>
@@ -735,11 +867,12 @@ function renderSchedule() {
   $("#today-progress").innerHTML = `${complete}<small>/${total}</small>`;
   $("#today-bar").style.width = `${percent}%`;
   $("#today-percent").textContent = total > 0 ? `${percent}% do dia completo` : "Nenhuma sessão hoje";
+  const restantes = Math.max(0, total - complete);
   $("#schedule-progress-label").textContent = total === 0
     ? "adicione sua primeira sessão"
     : complete === total
       ? "dia concluído"
-      : `${Math.max(0, total - complete)} sessão${total - complete === 1 ? "" : "ões"} restante${total - complete === 1 ? "" : "s"}`;
+      : `${restantes} sess${restantes === 1 ? "ão" : "ões"} restante${restantes === 1 ? "" : "s"}`;
 }
 
 const SUBJECT_COLOR_CLASS = {
@@ -794,7 +927,7 @@ function minutesBetween(start, end) {
 function renderWeekPlan() {
   const list = $("#week-list");
   if (!list) return;
-  const subjects = state.user.subjects.length ? state.user.subjects : ["Matemática", "Português"];
+  const subjects = planSubjects();
   const startTime = state.user.studyTimeStart || "08:00";
   const endTime = state.user.studyTimeEnd || "10:00";
   // Limita a 12h para não gerar um plano absurdo caso os horários fiquem iguais.
@@ -808,6 +941,8 @@ function renderWeekPlan() {
   subjects.forEach((subject) => { queues[subject] = pendingQueue(subject); cursors[subject] = 0; });
   // Tópico e intenção voltam separados para o cartão poder destacar o tópico
   // (o que a pessoa vai estudar) e jogar a intenção numa etiqueta discreta.
+  // `topic` volta cru: quem renderiza escapa, e o painel de hoje precisa do
+  // texto original para gravar no banco.
   const nextSession = (subject, time, fallbackIntent) => {
     const queue = queues[subject] || [];
     let topic = "";
@@ -815,26 +950,22 @@ function renderWeekPlan() {
     if (queue.length) {
       const item = queue[cursors[subject] % queue.length];
       cursors[subject] += 1;
-      topic = escapeHtml(item.topic);
+      topic = item.topic;
       intent = topicIntent(item.status);
     }
-    return { time, subject, topic, intent, className: subjectTagClass(subject) };
+    return {
+      time, subject, topic, intent,
+      // Tempo definido para esse tópico na ementa; sem tópico, o padrão.
+      minutes: topic ? topicMinutes(subject, topic) : TOPIC_MINUTES_DEFAULT,
+      className: subjectTagClass(subject)
+    };
   };
 
-  // Preenche toda a janela livre com blocos de estudo (~1h cada). Se o tempo
-  // livre passar de 3 horas, reserva 1 hora de descanso no meio do dia.
-  const SLOT_MINUTES = 60;
+  // Preenche a janela livre com um bloco por tópico, cada um com a duração que a
+  // pessoa escolheu na ementa (padrão 1h). Se o tempo livre passar de 3 horas,
+  // reserva 1 hora de descanso no meio do dia.
   const breakMinutes = windowMinutes > 180 ? 60 : 0;
-  const studyMinutes = Math.max(SLOT_MINUTES, windowMinutes - breakMinutes);
-  const studyBlocks = [];
-  for (let remaining = studyMinutes; remaining > 0; remaining -= Math.min(SLOT_MINUTES, remaining)) {
-    studyBlocks.push(Math.min(SLOT_MINUTES, remaining));
-  }
-  // Evita um último bloco curto demais juntando-o ao anterior.
-  if (studyBlocks.length > 1 && studyBlocks[studyBlocks.length - 1] < 20) {
-    studyBlocks[studyBlocks.length - 2] += studyBlocks.pop();
-  }
-  const breakAfter = breakMinutes ? Math.floor(studyBlocks.length / 2) : -1;
+  const studyMinutes = Math.max(TOPIC_MINUTES_MIN, windowMinutes - breakMinutes);
 
   let hasEmenta = false;
   // Só hoje, amanhã e depois de amanhã: um plano curto é um plano que se cumpre.
@@ -846,16 +977,31 @@ function renderWeekPlan() {
 
     let cursor = startTime;
     const items = [];
-    studyBlocks.forEach((duration, slotIndex) => {
+    let restante = studyMinutes;
+    let descansoFeito = !breakMinutes;
+    for (let slotIndex = 0; restante >= TOPIC_MINUTES_MIN; slotIndex += 1) {
       const subject = subjects[(dayIndex + slotIndex) % subjects.length];
       if ((queues[subject] || []).length) hasEmenta = true;
-      items.push({ ...nextSession(subject, cursor, slotIndex === 0 ? "conteúdo novo" : "questões e prática"), duration });
+      const session = nextSession(subject, cursor, slotIndex === 0 ? "conteúdo novo" : "questões e prática");
+      let duration = Math.min(session.minutes, restante);
+      // Sobra curta demais não vira bloco próprio: entra neste.
+      if (restante - duration < TOPIC_MINUTES_MIN) duration = restante;
+      items.push({ ...session, duration });
       cursor = addMinutes(cursor, duration);
-      if (slotIndex + 1 === breakAfter) {
+      restante -= duration;
+      // Descanso no meio do dia, e só se ainda houver estudo depois dele.
+      if (!descansoFeito && restante >= TOPIC_MINUTES_MIN && restante <= studyMinutes / 2) {
         items.push({ type: "break", time: cursor });
         cursor = addMinutes(cursor, breakMinutes);
+        descansoFeito = true;
       }
-    });
+    }
+
+    // Guarda os blocos de hoje (sem o descanso) para o painel de confirmação
+    // em "Meu progresso" saber o que perguntar.
+    if (dayIndex === 0) {
+      state.todayPlan = items.filter((item) => item.type !== "break");
+    }
 
     const rows = items.map((item) => {
       if (item.type === "break") {
@@ -864,7 +1010,7 @@ function renderWeekPlan() {
       // O tópico é o título do cartão; a matéria vira etiqueta acima dele. Sem
       // ementa preenchida não há tópico, então a matéria assume o título.
       const kicker = item.topic ? `<span class="week-session-subject">${item.subject}</span>` : "";
-      return `<div class="week-session ${item.className}"><span class="time">${item.time}</span><div class="week-session-main">${kicker}<strong>${item.topic || item.subject}</strong></div><span class="week-session-intent">${item.intent}</span><span class="week-session-duration">${item.duration} min</span></div>`;
+      return `<div class="week-session ${item.className}"><span class="time">${item.time}</span><div class="week-session-main">${kicker}<strong>${escapeHtml(item.topic || item.subject)}</strong></div><span class="week-session-intent">${item.intent}</span><span class="week-session-duration">${item.duration} min</span></div>`;
     }).join("");
     return `<article class="week-day ${dayIndex === 0 ? "today" : ""}"><div class="week-day-label"><strong>${label}</strong><span>${dateLabel}</span>${DAY_BRACE_SVG}</div><div class="week-day-sessions">${rows}</div></article>`;
   }).join("");
@@ -877,6 +1023,8 @@ function renderWeekPlan() {
       ? "✦ Priorizando os tópicos que você marcou como “Não sei” na sua ementa."
       : "✦ Dica: preencha sua ementa para o plano priorizar o que você ainda não aprendeu.";
   }
+  // O plano mudou, então o painel de confirmação de hoje precisa acompanhar.
+  renderTodayCheck();
 }
 
 function tagClassFor(tag) {
@@ -1119,10 +1267,64 @@ function applyDashboardData(data) {
   const streak = computeStreak(dailyMap);
 
   renderSchedule();
+  renderTodayCheck();
   renderStreakCard(dailyMap, streak);
   renderWeekMetric(dailyMap);
   renderWeeklyChart(dailyMap);
   renderProgressView(dailyMap, data.subjects, streak);
+
+  state.studyAlerts = (data.suggestions || []).filter(
+    (item) => !state.dismissedAlerts.has(syllabusKey(item.subject, item.topic))
+  );
+  renderStudyAlert();
+}
+
+// Notifica que já são 2h+ num tópico ainda em "Não sei" e oferece mudar o
+// estado. Uma por vez: resolvida ou dispensada, a próxima da fila aparece.
+function renderStudyAlert() {
+  const alertEl = $("#study-alert");
+  if (!alertEl) return;
+  const item = state.studyAlerts[0];
+  alertEl.classList.toggle("hidden", !item);
+  if (!item) return;
+
+  // Título: o total da matéria. Ao lado do tópico: o tempo só dele.
+  const totalMateria = formatMinutes(item.subject_minutes || item.minutes);
+  $("#study-alert-title").textContent = `${item.subject} · ${totalMateria} no total`;
+  $("#study-alert-text").innerHTML =
+    `Você estudou <b>${escapeHtml(item.topic)}</b> <span class="study-alert-time">${formatMinutes(item.minutes)}</span>. Como ficou seu entendimento desse conteúdo?`;
+}
+
+// Resposta da pessoa ao aviso: grava o nível escolhido na ementa. "Não entendi
+// ainda" também é gravado (mesmo sem mudar o status): o updated_at da linha é o
+// que faz o aviso calar até haver estudo novo nesse tópico.
+async function answerTopicLevel(status) {
+  const item = state.studyAlerts[0];
+  if (!item) return;
+  try {
+    const response = await fetch(`${API_BASE}/api/syllabus`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      // snooze só em "Não entendi ainda": os outros dois já saem da fila pelo status.
+      body: JSON.stringify({ items: [{ subject: item.subject, topic: item.topic, status, snooze: status === "unknown" }] })
+    });
+    if (!response.ok) throw new Error("save failed");
+    state.syllabus[syllabusKey(item.subject, item.topic)] = status;
+    state.studyAlerts.shift();
+    renderStudyAlert();
+    renderSyllabusView();
+    renderWeekPlan();
+    showToast(`${item.topic}: ${SYLLABUS_STATUS_LABEL[status]}.`);
+  } catch (error) {
+    showToast("Não foi possível atualizar o tópico agora.");
+  }
+}
+
+function dismissStudyAlert() {
+  const item = state.studyAlerts.shift();
+  if (item) state.dismissedAlerts.add(syllabusKey(item.subject, item.topic));
+  renderStudyAlert();
 }
 
 async function fetchDashboard() {
@@ -1148,8 +1350,10 @@ async function fetchSyllabus() {
     if (!response.ok) return;
     const data = await response.json();
     state.syllabus = {};
+    state.topicMinutes = {};
     (data.progress || []).forEach((row) => {
       state.syllabus[syllabusKey(row.subject, row.topic)] = row.status;
+      if (row.minutes) state.topicMinutes[syllabusKey(row.subject, row.topic)] = row.minutes;
     });
     renderSyllabusView();
   } catch (error) {
@@ -1161,8 +1365,9 @@ function renderSyllabusView() {
   const tag = $("#syllabus-objective-tag");
   if (tag) tag.innerHTML = `<span>${state.user.objective}</span>`;
 
-  const subjects = state.user.subjects.length ? state.user.subjects : Object.keys(SYLLABUS);
-  const knownSubjects = subjects.filter((subject) => topicsForSubject(subject).length);
+  // Só as matérias do plano: a ementa não deve cobrar conteúdo que a pessoa
+  // não vai estudar (antes caía para todas as matérias de SYLLABUS).
+  const knownSubjects = planSubjects().filter((subject) => topicsForSubject(subject).length);
 
   const listEl = $("#syllabus-subject-list");
   if (listEl) {
@@ -1246,7 +1451,28 @@ function syllabusRowHtml(subject, topic, current) {
   const levelTag = level
     ? `<span class="topic-level topic-level-${level}" title="Dificuldade estimada do conteúdo">${TOPIC_DIFFICULTY_LABEL[level]}</span>`
     : "";
-  return `<div class="syllabus-topic-row" data-topic="${safe}" data-status="${current}"><span class="syllabus-topic-name">${safe}${levelTag}${frequencyTag}</span><div class="topic-options">${options}</div>${topicContentHtml(subject, topic)}</div>`;
+  const minutos = topicMinutes(subject, topic);
+  return `<div class="syllabus-topic-row" data-topic="${safe}" data-status="${current}" data-minutes="${minutos}">
+    <span class="syllabus-topic-name">${safe}${levelTag}${frequencyTag}</span>
+    <div class="topic-options">${options}</div>
+    <div class="topic-row-tools">
+      <label class="topic-minutes" title="Duração do bloco desse tópico no plano">
+        <input type="number" min="${TOPIC_MINUTES_MIN}" max="${TOPIC_MINUTES_MAX}" step="5" value="${minutos}" data-topic-minutes aria-label="Minutos por bloco de ${safe}" /><span>min</span>
+      </label>
+      <button class="topic-remove" data-action="remove-syllabus-topic" title="Excluir ${safe} da ementa" aria-label="Excluir ${safe}">✕</button>
+    </div>
+    ${topicContentHtml(subject, topic)}
+  </div>`;
+}
+
+// Linha compacta de tópico excluído, com o caminho de volta. Sem isso, apagar um
+// tópico da base seria irreversível pela interface.
+function removedRowHtml(topic) {
+  const safe = escapeHtml(topic);
+  return `<div class="syllabus-removed-row" data-topic="${safe}">
+    <span>${safe}</span>
+    <button class="text-button" data-action="restore-syllabus-topic">Restaurar</button>
+  </div>`;
 }
 
 let editingSyllabusSubject = null;
@@ -1255,12 +1481,44 @@ function openSyllabusModal(subject) {
   if (!topics.length && !SYLLABUS[subject]) return;
   editingSyllabusSubject = subject;
   $("#syllabus-modal-title").textContent = `Ementa de ${subject}`;
-  $("#syllabus-modal-sub").textContent = "Marque o quanto você já sabe de cada tópico. Você também pode adicionar tópicos próprios.";
+  $("#syllabus-modal-sub").textContent = "Marque o quanto você já sabe de cada tópico, ajuste quanto tempo quer dedicar a ele e exclua o que não vai estudar.";
   $("#syllabus-new-topic").value = "";
   $("#syllabus-topic-list").innerHTML = topics
     .map((topic) => syllabusRowHtml(subject, topic, state.syllabus[syllabusKey(subject, topic)] || "unknown"))
     .join("");
+  renderRemovedTopics();
   $("#syllabus-modal").classList.remove("hidden");
+}
+
+function renderRemovedTopics() {
+  const box = $("#syllabus-removed");
+  const removidos = removedTopics(editingSyllabusSubject);
+  box.classList.toggle("hidden", !removidos.length);
+  $("#syllabus-removed-summary").textContent = `${removidos.length} tópico${removidos.length === 1 ? "" : "s"} excluído${removidos.length === 1 ? "" : "s"}`;
+  $("#syllabus-removed-list").innerHTML = removidos.map(removedRowHtml).join("");
+}
+
+// Excluir e restaurar só mexem no DOM; quem grava é saveSyllabus, então
+// "Cancelar" desfaz tudo. Um tópico excluído só sai da ementa depois de salvar.
+function removeSyllabusTopic(row) {
+  const topic = row.dataset.topic;
+  row.remove();
+  $("#syllabus-removed-list").insertAdjacentHTML("beforeend", removedRowHtml(topic));
+  const box = $("#syllabus-removed");
+  box.classList.remove("hidden");
+  box.open = true;
+  const total = $$("#syllabus-removed-list .syllabus-removed-row").length;
+  $("#syllabus-removed-summary").textContent = `${total} tópico${total === 1 ? "" : "s"} excluído${total === 1 ? "" : "s"}`;
+  showToast(`"${topic}" sai da ementa quando você salvar.`);
+}
+
+function restoreSyllabusTopic(row) {
+  const topic = row.dataset.topic;
+  row.remove();
+  $("#syllabus-topic-list").insertAdjacentHTML("beforeend", syllabusRowHtml(editingSyllabusSubject, topic, "unknown"));
+  const total = $$("#syllabus-removed-list .syllabus-removed-row").length;
+  $("#syllabus-removed").classList.toggle("hidden", !total);
+  $("#syllabus-removed-summary").textContent = `${total} tópico${total === 1 ? "" : "s"} excluído${total === 1 ? "" : "s"}`;
 }
 
 function addSyllabusTopic() {
@@ -1292,22 +1550,37 @@ function closeSyllabusModal() {
 async function saveSyllabus() {
   if (!editingSyllabusSubject) return;
   const subject = editingSyllabusSubject;
-  const items = $$("#syllabus-topic-list .syllabus-topic-row").map((row) => ({
-    subject,
-    topic: row.dataset.topic,
-    status: row.dataset.status || "unknown"
+  const items = $$("#syllabus-topic-list .syllabus-topic-row").map((row) => {
+    const input = $("[data-topic-minutes]", row);
+    const bruto = Number(input && input.value) || TOPIC_MINUTES_DEFAULT;
+    return {
+      subject,
+      topic: row.dataset.topic,
+      status: row.dataset.status || "unknown",
+      minutes: Math.min(TOPIC_MINUTES_MAX, Math.max(TOPIC_MINUTES_MIN, Math.round(bruto)))
+    };
+  });
+  // O que ficou na gaveta de excluídos vai como "removed" na mesma requisição.
+  const removidos = $$("#syllabus-removed-list .syllabus-removed-row").map((row) => ({
+    subject, topic: row.dataset.topic, status: "removed"
   }));
+  const items_e_removidos = [...items, ...removidos];
+  if (!items_e_removidos.length) {
+    closeSyllabusModal();
+    return;
+  }
 
   try {
     const response = await fetch(`${API_BASE}/api/syllabus`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ items })
+      body: JSON.stringify({ items: items_e_removidos })
     });
     if (!response.ok) throw new Error("save failed");
-    items.forEach((item) => {
+    items_e_removidos.forEach((item) => {
       state.syllabus[syllabusKey(item.subject, item.topic)] = item.status;
+      if (item.minutes) state.topicMinutes[syllabusKey(item.subject, item.topic)] = item.minutes;
     });
     closeSyllabusModal();
     renderSyllabusView();
@@ -1466,7 +1739,24 @@ function openLogSessionModal() {
   const mm = String(now.getMinutes()).padStart(2, "0");
   $("#log-session-time").value = `${hh}:${mm}`;
   $("#log-session-minutes").value = 30;
+  $("#log-session-detail").value = "";
+  // Só as matérias do plano, e sempre relidas: trocar as matérias no plano muda
+  // esta lista sem recarregar a página.
+  $("#log-session-subject").innerHTML = planSubjects()
+    .map((subject) => `<option value="${escapeHtml(subject)}">${escapeHtml(subject)}</option>`)
+    .join("");
+  fillLogSessionTopics();
   $("#log-session-modal").classList.remove("hidden");
+}
+
+// Sugere os tópicos da ementa da matéria escolhida. Se o nome bater com um
+// tópico, o tempo conta para ele — é o que dispara a notificação das 2h.
+// Texto livre continua valendo: aí a sessão só entra no total do dia.
+function fillLogSessionTopics() {
+  const topics = topicsForSubject($("#log-session-subject").value);
+  $("#log-session-topics").innerHTML = topics
+    .map((topic) => `<option value="${escapeHtml(topic)}"></option>`)
+    .join("");
 }
 
 function closeLogSessionModal() {
@@ -1477,7 +1767,15 @@ async function submitLogSession() {
   const subject = $("#log-session-subject").value;
   const minutes = Number($("#log-session-minutes").value);
   const time = $("#log-session-time").value || "08:00";
+  // Tag "Extra" identifica o que foi estudado fora do plano; ela já tem estilo
+  // próprio em tagClassFor() e aparece assim no painel de hoje.
+  const detail = ($("#log-session-detail").value || "").trim().slice(0, 120);
 
+  if (!detail) {
+    showToast("Escreva qual conteúdo você estudou.");
+    $("#log-session-detail").focus();
+    return;
+  }
   if (!minutes || minutes <= 0) {
     showToast("Informe quantos minutos você estudou.");
     return;
@@ -1488,7 +1786,7 @@ async function submitLogSession() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ subject, detail: "Sessão registrada manualmente", time, duration: minutes, tag: "Prática", completed: true })
+      body: JSON.stringify({ subject, detail, time, duration: minutes, tag: "Extra", completed: true })
     });
     if (!response.ok) throw new Error("create failed");
     await fetchDashboard();
@@ -1595,6 +1893,8 @@ document.addEventListener("click", async (event) => {
     if (action === "close-plan-modal") closePlanModal();
     if (action === "save-plan") savePlanFromModal();
     if (action === "open-syllabus") openSyllabusModal(actionTarget.dataset.subject);
+    if (action === "remove-syllabus-topic") removeSyllabusTopic(event.target.closest(".syllabus-topic-row"));
+    if (action === "restore-syllabus-topic") restoreSyllabusTopic(event.target.closest(".syllabus-removed-row"));
     if (action === "add-syllabus-topic") addSyllabusTopic();
     if (action === "close-syllabus-modal") closeSyllabusModal();
     if (action === "save-syllabus") await saveSyllabus();
@@ -1607,6 +1907,8 @@ document.addEventListener("click", async (event) => {
         actionTarget.setAttribute("aria-label", reveal ? "Ocultar senha" : "Mostrar senha");
       }
     }
+    if (action === "answer-topic-level") await answerTopicLevel(actionTarget.dataset.level);
+    if (action === "dismiss-study-alert") dismissStudyAlert();
     if (action === "open-log-session") openLogSessionModal();
     if (action === "close-log-session-modal") closeLogSessionModal();
     if (action === "save-log-session") await submitLogSession();
@@ -1638,6 +1940,12 @@ document.addEventListener("click", async (event) => {
   const session = event.target.closest(".schedule-item");
   if (session && event.target.closest(".schedule-check")) {
     const sessionId = Number(session.dataset.sessionId);
+    // Sem id é um bloco só previsto (painel de hoje em "Meu progresso"):
+    // confirmar cria a sessão em vez de alternar uma que já existe.
+    if (!sessionId) {
+      await confirmPlannedSession(session.dataset);
+      return;
+    }
     try {
       const response = await fetch(`${API_BASE}/api/sessions/${sessionId}/toggle`, { method: "POST", credentials: "include" });
       if (!response.ok) throw new Error("toggle failed");
@@ -1650,6 +1958,8 @@ document.addEventListener("click", async (event) => {
   }
 
 });
+
+$("#log-session-subject").addEventListener("change", fillLogSessionTopics);
 
 $("#login-form").addEventListener("submit", async (event) => {
   event.preventDefault();

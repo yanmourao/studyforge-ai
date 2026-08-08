@@ -633,6 +633,9 @@ app.post("/api/profile", async (req, res) => {
   }
 });
 
+// Tempo estudado num tópico que dispara a sugestão de marcá-lo como estudado.
+const MINUTOS_PARA_NOTIFICAR = 120;
+
 app.get("/api/dashboard", async (req, res) => {
   const userId = getAuthenticatedUserId(req);
   if (!userId) {
@@ -668,7 +671,41 @@ app.get("/api/dashboard", async (req, res) => {
       [userId]
     );
 
-    res.json({ today: today.rows, daily: daily.rows, subjects: subjects.rows });
+    // Tópicos com 2h ou mais de estudo que a pessoa ainda deixou em "Não sei":
+    // o front notifica sugerindo mudar o estado. Quem muda é a pessoa, não o
+    // servidor. Casa `detail` com o tópico da ementa, então texto livre de
+    // estudo extra só entra se bater com um tópico que ela já tem.
+    // `snoozed_at` é o que evita insistir: quem responde "Não entendi ainda" só
+    // volta a ser perguntado depois de registrar estudo novo nesse tópico.
+    const sugestoes = await pool.query(
+      `WITH estudado AS (
+         SELECT subject, detail AS topic, SUM(duration_minutes) AS minutes,
+                MAX(created_at) AS ultima
+         FROM study_sessions
+         WHERE user_id = $1 AND completed AND detail <> ''
+         GROUP BY subject, detail
+       ),
+       -- Total da matéria: conta tudo que foi concluído nela, inclusive sessões
+       -- sem tópico identificado, que não entram no CTE acima.
+       por_materia AS (
+         SELECT subject, SUM(duration_minutes) AS minutes
+         FROM study_sessions
+         WHERE user_id = $1 AND completed
+         GROUP BY subject
+       )
+       SELECT p.subject, p.topic, e.minutes::int AS minutes,
+              m.minutes::int AS subject_minutes
+       FROM syllabus_progress p
+       JOIN estudado e ON e.subject = p.subject AND e.topic = p.topic
+       JOIN por_materia m ON m.subject = p.subject
+       WHERE p.user_id = $1 AND p.status = 'unknown' AND e.minutes >= $2
+         AND (p.snoozed_at IS NULL OR e.ultima > p.snoozed_at)
+       ORDER BY e.minutes DESC
+       LIMIT 10`,
+      [userId, MINUTOS_PARA_NOTIFICAR]
+    );
+
+    res.json({ today: today.rows, daily: daily.rows, subjects: subjects.rows, suggestions: sugestoes.rows });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Erro ao carregar dados do dashboard." });
@@ -753,7 +790,7 @@ app.get("/api/syllabus", async (req, res) => {
 
   try {
     const result = await pool.query(
-      "SELECT subject, topic, status FROM syllabus_progress WHERE user_id = $1",
+      "SELECT subject, topic, status, minutes FROM syllabus_progress WHERE user_id = $1",
       [userId]
     );
     res.json({ progress: result.rows });
@@ -773,13 +810,24 @@ app.post("/api/syllabus", async (req, res) => {
   if (items.length > 200) {
     return res.status(400).json({ error: "Muitos itens em uma única requisição." });
   }
-  const allowed = new Set(["unknown", "learning", "mastered"]);
+  // "removed" é como um tópico excluído fica gravado: os tópicos da base vêm de
+  // uma constante do front, então apagar a linha só faria ele voltar. O front
+  // filtra esse status e oferece restaurar.
+  const allowed = new Set(["unknown", "learning", "mastered", "removed"]);
   const valid = items
-    .map((item) => ({
-      subject: String(item && item.subject || "").trim(),
-      topic: String(item && item.topic || "").trim(),
-      status: String(item && item.status || "unknown").trim()
-    }))
+    .map((item) => {
+      const minutes = Number(item && item.minutes);
+      return {
+        subject: String(item && item.subject || "").trim(),
+        topic: String(item && item.topic || "").trim(),
+        status: String(item && item.status || "unknown").trim(),
+        // NULL mantém o tempo que já estava gravado (ver o COALESCE no upsert).
+        minutes: Number.isInteger(minutes) && minutes >= 15 && minutes <= 240 ? minutes : null,
+        // Resposta ao aviso das 2h: marca a hora e para de perguntar até haver
+        // estudo novo no tópico.
+        snooze: Boolean(item && item.snooze)
+      };
+    })
     .filter((item) =>
       item.subject && item.subject.length <= 100 &&
       item.topic && item.topic.length <= 255 &&
@@ -795,11 +843,14 @@ app.post("/api/syllabus", async (req, res) => {
     await client.query("BEGIN");
     for (const item of valid) {
       await client.query(
-        `INSERT INTO syllabus_progress (user_id, subject, topic, status, updated_at)
-         VALUES ($1, $2, $3, $4, NOW())
+        `INSERT INTO syllabus_progress (user_id, subject, topic, status, minutes, snoozed_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, CASE WHEN $6 THEN NOW() END, NOW())
          ON CONFLICT (user_id, subject, topic)
-         DO UPDATE SET status = EXCLUDED.status, updated_at = NOW()`,
-        [userId, item.subject, item.topic, item.status]
+         DO UPDATE SET status = EXCLUDED.status,
+                       minutes = COALESCE(EXCLUDED.minutes, syllabus_progress.minutes),
+                       snoozed_at = CASE WHEN $6 THEN NOW() ELSE syllabus_progress.snoozed_at END,
+                       updated_at = NOW()`,
+        [userId, item.subject, item.topic, item.status, item.minutes, item.snooze]
       );
     }
     await client.query("COMMIT");

@@ -53,6 +53,12 @@ async function ensureSchema() {
     )
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS syllabus_progress_user_idx ON syllabus_progress (user_id)`);
+  // Duração do bloco daquele tópico no plano. NULL = o padrão do front (60min),
+  // e é o que permite gravar só o status sem sobrescrever o tempo escolhido.
+  await pool.query(`ALTER TABLE syllabus_progress ADD COLUMN IF NOT EXISTS minutes INTEGER`);
+  // Quando a pessoa respondeu "Não entendi ainda" no aviso das 2h. Marca própria
+  // em vez de updated_at: salvar a ementa não deve calar o aviso, só a resposta.
+  await pool.query(`ALTER TABLE syllabus_progress ADD COLUMN IF NOT EXISTS snoozed_at TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS plan VARCHAR(20) NOT NULL DEFAULT 'free'`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255)`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(255)`);

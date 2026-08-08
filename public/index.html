@@ -185,12 +185,26 @@
         <section class="dashboard-view" data-view-panel="syllabus"><div class="dashboard-heading"><div><span class="date-kicker">O QUE CAI NA PROVA</span><h1>Quanto você já <span>aprendeu?</span></h1><p>Marque cada tópico do conteúdo da prova. A gente calcula o quanto da ementa você já domina.</p></div><button class="date-selector" id="syllabus-objective-tag"><span>ENEM</span></button></div><div class="syllabus-stats"><article class="panel syllabus-stat stat-mastered"><span class="panel-kicker">JÁ SEI</span><strong id="syllabus-mastered-pct">—<span>%</span></strong><p id="syllabus-mastered-count">— de — tópicos</p><div class="syllabus-summary-bar"><span id="syllabus-mastered-bar" style="width:0%"></span></div></article><article class="panel syllabus-stat stat-learning"><span class="panel-kicker">ESTUDANDO</span><strong id="syllabus-learning-pct">—<span>%</span></strong><p id="syllabus-learning-count">— de — tópicos</p><div class="syllabus-summary-bar"><span id="syllabus-learning-bar" style="width:0%"></span></div></article><article class="panel syllabus-stat stat-unknown"><span class="panel-kicker">NÃO SEI</span><strong id="syllabus-unknown-pct">—<span>%</span></strong><p id="syllabus-unknown-count">— de — tópicos</p><div class="syllabus-summary-bar"><span id="syllabus-unknown-bar" style="width:0%"></span></div></article></div><div class="panel syllabus-hint-card"><span class="ai-badge">✦</span><h3 id="syllabus-hint-title">Comece pelo que ainda não viu.</h3><p id="syllabus-hint-text">Preencha a ementa de cada matéria para o StudyForge priorizar os tópicos que faltam no seu plano.</p></div><div class="syllabus-subject-list" id="syllabus-subject-list"></div></section>
 
 
-        <section class="dashboard-view" data-view-panel="progress"><div class="dashboard-heading"><div><span class="date-kicker">SEU DESENVOLVIMENTO</span><h1>O progresso aparece <span>no caminho.</span></h1><p>Consistência não é fazer tudo. É continuar voltando.</p></div><button class="date-selector"><span>Últimos 30 dias</span><span>⌄</span></button></div><div class="progress-overview"><div class="panel big-progress-card"><span class="panel-kicker">HORAS ESTUDADAS</span><strong id="big-progress-hours">0<span>h</span> 0<span>min</span></strong><p>nos últimos 30 dias</p><div class="large-chart" id="large-chart"></div></div><div class="panel subject-progress-card"><span class="panel-kicker">DOMÍNIO POR MATÉRIA</span><div id="subject-progress-list"></div><button class="insight-link" data-view-target="syllabus">Ver minha ementa <span>→</span></button></div></div><div class="panel subject-hours-card"><span class="panel-kicker">HORAS POR MATÉRIA</span><div id="subject-hours-list"></div></div><div class="panel achievement-panel"><div><span class="achievement-icon">♨</span><div><span class="panel-kicker">CONQUISTA RECENTE</span><h3 id="achievement-title">Comece sua sequência</h3><p id="achievement-text">Conclua uma sessão de estudo hoje para começar sua sequência.</p></div></div></div></section>
+        <section class="dashboard-view" data-view-panel="progress"><div class="dashboard-heading"><div><span class="date-kicker">SEU DESENVOLVIMENTO</span><h1>O progresso aparece <span>no caminho.</span></h1><p>Consistência não é fazer tudo. É continuar voltando.</p></div><button class="date-selector"><span>Últimos 30 dias</span><span>⌄</span></button></div><section class="panel today-check-panel"><div class="panel-header"><div><span class="panel-kicker">JÁ ESTUDOU HOJE?</span><h2>Confirme o que você fez</h2></div><div class="today-check-head-right"><small id="today-check-summary"></small><button class="button button-outline button-small" data-action="open-log-session">+ Estudo extra</button></div></div><div id="today-check-list"></div></section><div class="progress-overview"><div class="panel big-progress-card"><span class="panel-kicker">HORAS ESTUDADAS</span><strong id="big-progress-hours">0<span>h</span> 0<span>min</span></strong><p>nos últimos 30 dias</p><div class="large-chart" id="large-chart"></div></div><div class="panel subject-progress-card"><span class="panel-kicker">DOMÍNIO POR MATÉRIA</span><div id="subject-progress-list"></div><button class="insight-link" data-view-target="syllabus">Ver minha ementa <span>→</span></button></div></div><div class="panel subject-hours-card"><span class="panel-kicker">HORAS POR MATÉRIA</span><div id="subject-hours-list"></div></div><div class="panel achievement-panel"><div><span class="achievement-icon">♨</span><div><span class="panel-kicker">CONQUISTA RECENTE</span><h3 id="achievement-title">Comece sua sequência</h3><p id="achievement-text">Conclua uma sessão de estudo hoje para começar sua sequência.</p></div></div></div></section>
       </div>
     </main>
   </section>
 
   <div class="toast" id="toast"><span>✦</span><p id="toast-message">Plano atualizado.</p></div>
+
+  <!-- Aviso de 2h estudadas num tópico ainda marcado como "Não sei". No meio da
+       tela, com fundo escurecido, para não passar batido: fica até a pessoa responder. -->
+  <div class="modal-overlay hidden" id="study-alert">
+    <div class="modal-panel study-alert-panel">
+      <div class="study-alert-top"><span class="ai-badge">✦</span><strong id="study-alert-title">2h de estudo</strong><button class="modal-close" data-action="dismiss-study-alert" aria-label="Fechar">✕</button></div>
+      <p id="study-alert-text"></p>
+      <div class="study-alert-actions">
+        <button class="level-choice unknown" data-action="answer-topic-level" data-level="unknown">Não entendi ainda</button>
+        <button class="level-choice learning" data-action="answer-topic-level" data-level="learning">Em processo</button>
+        <button class="level-choice mastered" data-action="answer-topic-level" data-level="mastered">Já domino</button>
+      </div>
+    </div>
+  </div>
 
   <div class="modal-overlay hidden" id="plan-modal">
     <div class="modal-panel">
@@ -206,8 +220,24 @@
     <div class="modal-panel modal-panel-wide">
       <div class="modal-header"><h2 id="syllabus-modal-title">Ementa da matéria</h2><button class="modal-close" data-action="close-syllabus-modal">✕</button></div>
       <p class="syllabus-modal-sub" id="syllabus-modal-sub">Para cada tópico, diga o quanto você já sabe. Isso mostra o que ainda falta.</p>
+      <!-- <details> nativo: ajuda que abre e fecha sem listener nem estado. -->
+      <details class="modal-help">
+        <summary>? Como usar esta tela</summary>
+        <ul>
+          <li><b>Não sei / Estudando / Já domino</b> — o quanto você já sabe do tópico. É daqui que sai a sua porcentagem de ementa aprendida, e a ordem do plano: o que está em "Não sei" entra primeiro, o que você já domina volta só para revisão.</li>
+          <li><b>O campo de minutos</b> — quanto tempo esse tópico ocupa quando ele aparece no seu plano. Deixe 60 para um bloco de 1 hora, ou coloque 90 se for um conteúdo que você precisa de mais tempo para estudar. Vale de 15 a 240 minutos, e o plano do dia se reorganiza sozinho para caber na sua janela de estudo.</li>
+          <li><b>O ✕</b> — exclui o tópico. Ele sai das contas, do plano e dos avisos. Nada é perdido: os excluídos ficam listados no fim desta tela com um botão para restaurar.</li>
+          <li><b>Adicionar um tópico</b> — para conteúdo que a sua escola ou seu cursinho cobra e não está na lista. Ele funciona igual aos outros.</li>
+          <li><b>Resumo do tópico</b> — quando aparece, abre uma explicação curta com a fórmula principal, para consulta rápida.</li>
+          <li>Nada é salvo até você clicar em <b>Salvar ementa</b>. "Cancelar" desfaz tudo, inclusive as exclusões.</li>
+        </ul>
+      </details>
       <div class="syllabus-topic-list" id="syllabus-topic-list"></div>
       <div class="syllabus-add-topic"><input id="syllabus-new-topic" type="text" maxlength="120" placeholder="Adicionar um tópico à ementa..." /><button class="button button-ghost button-small" data-action="add-syllabus-topic">＋ Adicionar</button></div>
+      <details class="syllabus-removed hidden" id="syllabus-removed">
+        <summary id="syllabus-removed-summary">Tópicos excluídos</summary>
+        <div id="syllabus-removed-list"></div>
+      </details>
       <div class="modal-actions"><button class="button button-ghost" data-action="close-syllabus-modal">Cancelar</button><button class="button button-primary" data-action="save-syllabus">Salvar ementa</button></div>
     </div>
   </div>
@@ -224,7 +254,10 @@
   <div class="modal-overlay hidden" id="log-session-modal">
     <div class="modal-panel">
       <div class="modal-header"><h2>Registrar sessão de estudo</h2><button class="modal-close" data-action="close-log-session-modal">✕</button></div>
-      <label class="input-label">Matéria<select id="log-session-subject"><option value="Matemática">Matemática</option><option value="Português">Português</option><option value="Biologia">Biologia</option><option value="História">História</option><option value="Física">Física</option><option value="Química">Química</option></select></label>
+      <!-- Opções vêm de planSubjects() em openLogSessionModal: só as matérias do plano. -->
+      <label class="input-label">Matéria<select id="log-session-subject"></select></label>
+      <label class="input-label">Qual conteúdo você estudou?<input id="log-session-detail" type="text" maxlength="120" list="log-session-topics" autocomplete="off" placeholder="Ex: Logaritmos" /><small class="input-hint">Escolha um tópico da sua ementa para o tempo contar nele.</small></label>
+      <datalist id="log-session-topics"></datalist>
       <div class="two-fields"><label class="input-label">Quanto tempo você estudou?<div class="input-with-suffix"><input id="log-session-minutes" type="number" min="1" max="600" value="30" /><span>min</span></div></label><label class="input-label">A que horas foi?<input id="log-session-time" type="time" /></label></div>
       <div class="modal-actions"><button class="button button-ghost" data-action="close-log-session-modal">Cancelar</button><button class="button button-primary" data-action="save-log-session">Registrar sessão</button></div>
     </div>
