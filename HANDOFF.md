@@ -19,8 +19,9 @@ Stripe. Nada foi commitado ainda.
 - Token = `HMAC(SESSION_SECRET, "reset:" + payload + password_hash atual)`, 1h de
   validade. Como o hash entra na assinatura, trocar a senha invalida todos os
   links pendentes: **uso único sem tabela de tokens**, nenhuma migração.
-- E-mail via API HTTP do Resend em `sendEmail()` (`fetch` puro, sem SDK). Sem
-  `RESEND_API_KEY` o link é impresso no log do servidor — dev funciona sem config.
+- E-mail via SMTP em `sendEmail()` (nodemailer, `smtp.gmail.com` por padrão;
+  `SMTP_PASS` é uma senha de app do Google). Sem `SMTP_USER` o link é impresso no
+  log do servidor — dev funciona sem config. Trocar de provedor é só env.
 - Front: dois `.form-step` novos no card de login (`#forgot-form`, `#reset-form`).
   O link chega como `/?reset=<token>` e `handlePasswordResetLink()` abre o
   formulário em vez de restaurar a sessão.
@@ -114,11 +115,10 @@ bancária). A revisão pode levar dias — adiantar isso antes do resto.
 
 ### 3. Configurar o envio real de e-mail
 
-Sem `RESEND_API_KEY` a recuperação de senha **não envia nada**, só escreve o link
-no log. Em produção isso significa que ninguém recupera a senha. Falta:
-criar conta no Resend, verificar um domínio, e definir `RESEND_API_KEY` e
-`MAIL_FROM` (com o domínio verificado) local e na Vercel. O padrão
-`onboarding@resend.dev` só entrega para o e-mail do dono da conta Resend.
+Sem `SMTP_USER` a recuperação de senha **não envia nada**, só escreve o link no
+log. Em produção isso significa que ninguém recupera a senha. Falta definir
+`SMTP_USER`, `SMTP_PASS` (senha de app do Google) e `MAIL_FROM` no `.env` e na
+Vercel. Confira com `node scripts/test-email.js seu@email.com`.
 
 ### 4. Tutor de IA foi REMOVIDO (não é pendência)
 

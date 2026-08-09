@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const Stripe = require("stripe");
+const nodemailer = require("nodemailer");
 const pool = require("./db");
 
 const SESSION_SECRET = process.env.SESSION_SECRET;
@@ -229,22 +230,26 @@ function resetSignatureMatches(parsed, passwordHash) {
   return expected.length === received.length && crypto.timingSafeEqual(expected, received);
 }
 
-// Envio de e-mail pela API HTTP do Resend (sem SDK). Sem RESEND_API_KEY apenas
-// imprime o link no log, para o fluxo funcionar em dev sem configurar nada.
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const MAIL_FROM = process.env.MAIL_FROM || "StudyForge AI <onboarding@resend.dev>";
+// Envio por SMTP. Padrão é o Gmail: SMTP_USER é a conta e SMTP_PASS é a "senha
+// de app" do Google (a senha normal não funciona com 2FA ligada). Trocar de
+// provedor depois é só mudar SMTP_HOST/USER/PASS — nenhuma linha de código.
+// Sem SMTP_USER, imprime o link no log: dev funciona sem configurar nada.
+const MAIL_FROM = process.env.MAIL_FROM || process.env.SMTP_USER;
+const mailer = process.env.SMTP_USER
+  ? nodemailer.createTransport({
+      host: process.env.SMTP_HOST || "smtp.gmail.com",
+      port: Number(process.env.SMTP_PORT) || 587,
+      secure: false, // 587 começa em texto claro e sobe para TLS via STARTTLS
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+    })
+  : null;
 
 async function sendEmail(to, subject, html) {
-  if (!RESEND_API_KEY) {
-    console.log(`[email não enviado: RESEND_API_KEY ausente]\npara: ${to}\nassunto: ${subject}\n${html}`);
+  if (!mailer) {
+    console.log(`[email não enviado: SMTP_USER ausente]\npara: ${to}\nassunto: ${subject}\n${html}`);
     return;
   }
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: MAIL_FROM, to, subject, html })
-  });
-  if (!response.ok) throw new Error(`Resend respondeu ${response.status}: ${await response.text()}`);
+  await mailer.sendMail({ from: MAIL_FROM, to, subject, html });
 }
 
 const app = express();

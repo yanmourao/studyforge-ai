@@ -47,12 +47,26 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 # Opcionais de segurança
 ALLOWED_ORIGINS=https://yanmourao.github.io,https://outra-origem.com
 TURNSTILE_SECRET=0x...
-# Envio de e-mail (recuperação de senha)
-RESEND_API_KEY=re_...
-MAIL_FROM=StudyForge AI <nao-responda@seudominio.com>
+# Envio de e-mail (recuperação de senha) — SMTP, padrão Gmail
+SMTP_USER=voce@gmail.com
+SMTP_PASS=senha-de-app-de-16-letras
+MAIL_FROM=StudyForge AI <voce@gmail.com>
+# Opcionais: outro provedor
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
 ```
 
-`RESEND_API_KEY` habilita o envio real do e-mail de recuperação de senha pela [API do Resend](https://resend.com/docs/api-reference/emails/send-email) (sem SDK, só `fetch`). **Sem a chave, nada quebra**: o link é impresso no log do servidor, o que basta para testar em dev. `MAIL_FROM` precisa de um domínio verificado no Resend; o padrão (`onboarding@resend.dev`) só entrega para o e-mail do dono da conta Resend.
+`SMTP_USER` habilita o envio real do e-mail de recuperação de senha. Com o Gmail, `SMTP_PASS` é uma **senha de app** ([myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)), não a senha da conta — a senha normal é recusada quando a verificação em duas etapas está ligada, e ela é obrigatória para gerar a senha de app. Limite do Gmail: ~500 mensagens por dia.
+
+**Sem `SMTP_USER`, nada quebra**: o link é impresso no log do servidor, o que basta para testar em dev.
+
+Trocar de provedor (Resend, Brevo, SendGrid, o que for) é só mudar `SMTP_HOST`/`SMTP_USER`/`SMTP_PASS` — o código não muda. Vale trocar quando você tiver um domínio próprio, para o remetente deixar de ser um Gmail pessoal.
+
+Teste as credenciais sem passar pelo fluxo inteiro:
+
+```bash
+node scripts/test-email.js seu@email.com
+```
 
 O link enviado aponta para `FRONTEND_URL/?reset=<token>`. O token é um HMAC de `SESSION_SECRET` + o hash atual da senha, com validade de 1 hora — por isso ele deixa de valer sozinho depois que a senha muda (uso único, sem tabela de tokens).
 
