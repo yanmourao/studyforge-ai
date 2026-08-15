@@ -18,6 +18,9 @@ const state = {
     hours: 2,
     studyTimeStart: "08:00",
     studyTimeEnd: "10:00",
+    // null = perfil ainda não salvou uma escolha explícita; o plano cai no
+    // padrão de 60min (ver renderWeekPlan).
+    breakMinutes: null,
     level: "Intermediário",
     subjects: []
   },
@@ -505,6 +508,9 @@ function syllabusKey(subject, topic) {
 // cadastro. Sem escolha salva (contas antigas), o par com que o plano começa.
 const planSubjects = () => state.user.subjects.length ? state.user.subjects : ["Matemática", "Português"];
 
+// Descanso padrão até a pessoa escolher um valor no modal do plano.
+const DEFAULT_BREAK_MINUTES = 60;
+
 // Duração padrão do bloco de um tópico no plano, quando a pessoa não mudou.
 const TOPIC_MINUTES_DEFAULT = 60;
 const TOPIC_MINUTES_MIN = 15;
@@ -691,7 +697,8 @@ async function saveProfile() {
         studyTimeStart: state.user.studyTimeStart,
         studyTimeEnd: state.user.studyTimeEnd,
         level: state.user.level,
-        subjects: state.user.subjects
+        subjects: state.user.subjects,
+        breakMinutes: state.user.breakMinutes
       })
     });
   } catch (error) {
@@ -709,6 +716,9 @@ function applyProfile(profile) {
   if (profile.studyTimeEnd) state.user.studyTimeEnd = profile.studyTimeEnd;
   if (profile.level) state.user.level = profile.level;
   if (Array.isArray(profile.subjects) && profile.subjects.length) state.user.subjects = profile.subjects;
+  // 0 é uma escolha válida (sem descanso), então não pode cair no mesmo teste
+  // "truthy" dos outros campos.
+  if (Number.isInteger(profile.breakMinutes)) state.user.breakMinutes = profile.breakMinutes;
 }
 
 function initials(name) {
@@ -962,10 +972,13 @@ function renderWeekPlan() {
   };
 
   // Preenche a janela livre com um bloco por tópico, cada um com a duração que a
-  // pessoa escolheu na ementa (padrão 1h). Se o tempo livre passar de 3 horas,
-  // reserva 1 hora de descanso no meio do dia.
-  const breakMinutes = windowMinutes > 180 ? 60 : 0;
-  const studyMinutes = Math.max(TOPIC_MINUTES_MIN, windowMinutes - breakMinutes);
+  // pessoa escolheu na ementa (padrão 1h). O descanso no meio do dia é definido
+  // por ela mesma no modal do plano (0 = sem descanso).
+  const breakMinutes = Number.isInteger(state.user.breakMinutes) ? state.user.breakMinutes : DEFAULT_BREAK_MINUTES;
+  // Sem espaço de sobra para caber estudo antes e depois, o descanso não entra
+  // — sem isso, um descanso maior que a janela devoraria o dia inteiro.
+  const breakFits = breakMinutes > 0 && windowMinutes > breakMinutes + TOPIC_MINUTES_MIN * 2;
+  const studyMinutes = Math.max(TOPIC_MINUTES_MIN, windowMinutes - (breakFits ? breakMinutes : 0));
 
   let hasEmenta = false;
   // Só hoje, amanhã e depois de amanhã: um plano curto é um plano que se cumpre.
@@ -978,7 +991,7 @@ function renderWeekPlan() {
     let cursor = startTime;
     const items = [];
     let restante = studyMinutes;
-    let descansoFeito = !breakMinutes;
+    let descansoFeito = !breakFits;
     for (let slotIndex = 0; restante >= TOPIC_MINUTES_MIN; slotIndex += 1) {
       const subject = subjects[(dayIndex + slotIndex) % subjects.length];
       if ((queues[subject] || []).length) hasEmenta = true;
@@ -1689,6 +1702,7 @@ function openPlanModal() {
   $("#plan-modal-days").value = state.user.days;
   $("#plan-modal-time-start").value = state.user.studyTimeStart;
   $("#plan-modal-time-end").value = state.user.studyTimeEnd;
+  $("#plan-modal-break").value = Number.isInteger(state.user.breakMinutes) ? state.user.breakMinutes : DEFAULT_BREAK_MINUTES;
   $("#plan-modal").classList.remove("hidden");
 }
 
@@ -1706,6 +1720,10 @@ function savePlanFromModal() {
   state.user.days = Number($("#plan-modal-days").value) || state.user.days;
   state.user.studyTimeStart = $("#plan-modal-time-start").value || state.user.studyTimeStart;
   state.user.studyTimeEnd = $("#plan-modal-time-end").value || state.user.studyTimeEnd;
+  const breakInput = Math.round(Number($("#plan-modal-break").value));
+  state.user.breakMinutes = Number.isInteger(breakInput)
+    ? Math.min(240, Math.max(0, breakInput))
+    : DEFAULT_BREAK_MINUTES;
   closePlanModal();
   saveProfile();
   setUserLabels();

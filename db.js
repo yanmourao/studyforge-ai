@@ -71,6 +71,9 @@ async function ensureSchema() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS exam_days INTEGER`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS daily_hours INTEGER`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS study_time_start VARCHAR(5)`);
+  // NULL = comportamento antigo (60min automático se a janela livre passar de
+  // 3h, senão nenhum). Só vira número quando a pessoa escolhe explicitamente.
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS break_minutes INTEGER`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS study_time_end VARCHAR(5)`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS level VARCHAR(30)`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS subjects JSONB`);

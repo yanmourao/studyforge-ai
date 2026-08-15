@@ -190,7 +190,8 @@ function mapProfile(row) {
     studyTimeStart: row.study_time_start || null,
     studyTimeEnd: row.study_time_end || null,
     level: row.level || null,
-    subjects: Array.isArray(row.subjects) ? row.subjects : []
+    subjects: Array.isArray(row.subjects) ? row.subjects : [],
+    breakMinutes: Number.isInteger(row.break_minutes) ? row.break_minutes : null
   };
 }
 
@@ -243,6 +244,32 @@ const mailer = process.env.SMTP_USER
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
     })
   : null;
+
+// Layout comum dos e-mails: tabelas com estilo inline, porque é o que o Gmail e
+// o Outlook realmente respeitam — <style> no <head> é removido por vários
+// clientes. `body` já vem escapado por quem monta o e-mail.
+function emailLayout({ title, body, ctaText, ctaLink }) {
+  return `<body style="margin:0;padding:32px 16px;background:#f7f8fa;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+      <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;">
+        <tr><td style="background:#202b31;padding:24px 32px;">
+          <span style="color:#fb705e;font-size:20px;">✦</span>
+          <span style="color:#ffffff;font:600 16px 'Segoe UI',Roboto,Helvetica,Arial,sans-serif;margin-left:8px;">StudyForge AI</span>
+        </td></tr>
+        <tr><td style="padding:32px;">
+          <h1 style="margin:0 0 16px;color:#202022;font-size:19px;">${title}</h1>
+          <div style="color:#4a4a4f;font-size:14px;line-height:1.65;">${body}</div>
+          ${ctaLink ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:26px 0 6px;"><tr><td style="border-radius:9px;background:#fb705e;">
+            <a href="${ctaLink}" style="display:inline-block;padding:13px 26px;color:#ffffff;font:600 14px 'Segoe UI',Roboto,Helvetica,Arial,sans-serif;text-decoration:none;">${ctaText}</a>
+          </td></tr></table>` : ""}
+        </td></tr>
+        <tr><td style="padding:0 32px 28px;">
+          <p style="margin:0;color:#96959d;font-size:12px;line-height:1.6;">Se o botão não funcionar, copie e cole este link no navegador:<br /><span style="word-break:break-all;">${ctaLink || ""}</span></p>
+        </td></tr>
+      </table>
+    </td></tr></table>
+  </body>`;
+}
 
 async function sendEmail(to, subject, html) {
   if (!mailer) {
@@ -377,7 +404,7 @@ app.post("/api/login", loginLimiter, verifyTurnstile, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT id, name, email, password_hash, plan, objective, exam_days, daily_hours,
-              study_time_start, study_time_end, level, subjects
+              study_time_start, study_time_end, level, subjects, break_minutes
        FROM users WHERE email = $1`,
       [email]
     );
@@ -411,10 +438,14 @@ app.post("/api/password/forgot", forgotLimiter, verifyTurnstile, async (req, res
       await sendEmail(
         email,
         "Redefinir sua senha do StudyForge AI",
-        `<p>Olá, ${escapeHtml(user.name)}!</p>
-         <p>Recebemos um pedido para redefinir a senha da sua conta no StudyForge AI.</p>
-         <p><a href="${escapeHtml(link)}">Clique aqui para criar uma nova senha</a></p>
-         <p>O link expira em 1 hora e só pode ser usado uma vez. Se não foi você que pediu, ignore este e-mail: sua senha atual continua valendo.</p>`
+        emailLayout({
+          title: `Olá, ${escapeHtml(user.name)}!`,
+          body: `Recebemos um pedido para redefinir a senha da sua conta no StudyForge AI.
+                 O link expira em <b>1 hora</b> e só pode ser usado uma vez. Se não foi você que
+                 pediu, ignore este e-mail: sua senha atual continua valendo.`,
+          ctaText: "Criar uma nova senha",
+          ctaLink: escapeHtml(link)
+        })
       );
     }
     res.json({ ok: true });
@@ -457,7 +488,7 @@ app.get("/api/me", async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT id, name, email, plan, objective, exam_days, daily_hours,
-              study_time_start, study_time_end, level, subjects
+              study_time_start, study_time_end, level, subjects, break_minutes
        FROM users WHERE id = $1`,
       [userId]
     );
@@ -612,6 +643,7 @@ app.post("/api/profile", async (req, res) => {
   const subjects = Array.isArray(body.subjects)
     ? body.subjects.filter((item) => typeof item === "string" && item.trim() && item.length <= 100).slice(0, 20)
     : [];
+  const breakMinutes = Number(body.breakMinutes);
 
   if (!objective) {
     return res.status(400).json({ error: "Objetivo inválido." });
@@ -622,14 +654,19 @@ app.post("/api/profile", async (req, res) => {
   if (body.hours !== undefined && (!Number.isInteger(hours) || hours < 1 || hours > 24)) {
     return res.status(400).json({ error: "Horas por dia inválidas." });
   }
+  if (body.breakMinutes !== undefined && (!Number.isInteger(breakMinutes) || breakMinutes < 0 || breakMinutes > 240)) {
+    return res.status(400).json({ error: "Tempo de descanso inválido." });
+  }
 
   try {
     const result = await pool.query(
       `UPDATE users SET objective = $1, exam_days = $2, daily_hours = $3,
-              study_time_start = $4, study_time_end = $5, level = $6, subjects = $7::jsonb
+              study_time_start = $4, study_time_end = $5, level = $6, subjects = $7::jsonb,
+              break_minutes = $9
        WHERE id = $8
-       RETURNING objective, exam_days, daily_hours, study_time_start, study_time_end, level, subjects`,
-      [objective, days, Number.isInteger(hours) ? hours : null, start, end, level, JSON.stringify(subjects), userId]
+       RETURNING objective, exam_days, daily_hours, study_time_start, study_time_end, level, subjects, break_minutes`,
+      [objective, days, Number.isInteger(hours) ? hours : null, start, end, level, JSON.stringify(subjects), userId,
+       Number.isInteger(breakMinutes) ? breakMinutes : null]
     );
     res.json({ profile: mapProfile(result.rows[0]) });
   } catch (error) {
@@ -884,6 +921,7 @@ app.use((error, req, res, next) => {
 module.exports = app;
 // Expostos apenas para o autoteste em scripts/test-reset-token.js.
 module.exports.resetTokenInternals = { createResetToken, parseResetToken, resetSignatureMatches };
+module.exports.emailLayout = emailLayout;
 
 // Só sobe o servidor quando executado direto (`node server.js`, Render/dev).
 // Na Vercel o mesmo app é chamado por pages/api/[...path].js como função.
