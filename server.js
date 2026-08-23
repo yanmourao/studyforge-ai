@@ -678,6 +678,19 @@ app.post("/api/profile", async (req, res) => {
 // Tempo estudado num tópico que dispara a sugestão de marcá-lo como estudado.
 const MINUTOS_PARA_NOTIFICAR = 120;
 
+// Janelas temporais do dashboard (?range=). O valor vem da query string e vira
+// SQL pronto, então só passa o que está nesta whitelist — qualquer outra coisa
+// cai no padrão "30d". `daily` cobre a janela toda; as matérias também passam a
+// respeitá-la (estudo de uma semana atrás não aparece com range "ontem").
+const DASHBOARD_RANGES = {
+  today: "= CURRENT_DATE",
+  yesterday: "= CURRENT_DATE - INTERVAL '1 day'",
+  "7d": ">= CURRENT_DATE - INTERVAL '6 days'",
+  "30d": ">= CURRENT_DATE - INTERVAL '29 days'",
+  "2m": ">= CURRENT_DATE - INTERVAL '59 days'",
+  "6m": ">= CURRENT_DATE - INTERVAL '181 days'"
+};
+
 app.get("/api/dashboard", async (req, res) => {
   const userId = getAuthenticatedUserId(req);
   if (!userId) {
@@ -685,6 +698,11 @@ app.get("/api/dashboard", async (req, res) => {
   }
 
   try {
+    const range = Object.prototype.hasOwnProperty.call(DASHBOARD_RANGES, req.query.range)
+      ? req.query.range
+      : "30d";
+    const dateFilter = `AND session_date ${DASHBOARD_RANGES[range]}`;
+
     const today = await pool.query(
       `SELECT id, subject, detail, session_time, duration_minutes, tag, completed
        FROM study_sessions
@@ -698,7 +716,7 @@ app.get("/api/dashboard", async (req, res) => {
               COALESCE(SUM(duration_minutes) FILTER (WHERE completed), 0) AS minutes,
               BOOL_OR(completed) AS has_completed
        FROM study_sessions
-       WHERE user_id = $1 AND session_date >= CURRENT_DATE - INTERVAL '29 days'
+       WHERE user_id = $1 ${dateFilter}
        GROUP BY session_date`,
       [userId]
     );
@@ -707,7 +725,7 @@ app.get("/api/dashboard", async (req, res) => {
       `SELECT subject, COUNT(*) AS total, COUNT(*) FILTER (WHERE completed) AS completed,
               COALESCE(SUM(duration_minutes) FILTER (WHERE completed), 0) AS minutes
        FROM study_sessions
-       WHERE user_id = $1
+       WHERE user_id = $1 ${dateFilter}
        GROUP BY subject
        ORDER BY total DESC`,
       [userId]

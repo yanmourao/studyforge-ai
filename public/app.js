@@ -27,6 +27,10 @@ const state = {
   sessions: [],
   // Blocos de estudo previstos para hoje, preenchido por renderWeekPlan().
   todayPlan: [],
+  // Edições manuais de um bloco do plano: chave "dia-posição" -> {subject, topic}.
+  // Só nesta sessão do navegador — o plano é gerado de novo a cada render, não
+  // existe linha no banco para persistir isso.
+  planOverrides: {},
   // Domínio de cada tópico da ementa: chave "Matéria|||Tópico" -> status
   // ("unknown" | "learning" | "mastered").
   syllabus: {},
@@ -37,7 +41,24 @@ const state = {
   // a pessoa dispensou nesta visita (o servidor segue mandando enquanto o
   // estado não mudar; sem isso a notificação voltaria a cada sessão marcada).
   studyAlerts: [],
-  dismissedAlerts: new Set()
+  dismissedAlerts: new Set(),
+  // Janela temporal selecionada na view de progresso ("Últimos 30 dias" etc.).
+  // Vai como ?range= no /api/dashboard e define o período dos cards de horas,
+  // gráfico grande e horas por matéria.
+  progressRange: "30d"
+};
+
+// Cada janela do seletor de datas da view de progresso. startAgo/endAgo são
+// "dias atrás" (0 = hoje): o intervalo vai de hoje-startAgo até hoje-endAgo.
+// bucketDays agrupa dias por barra no gráfico grande (mantém ~12 barras, como
+// antes, para não mudar a densidade visual do card).
+const PROGRESS_RANGES = {
+  today: { label: "Hoje", note: "hoje", startAgo: 0, endAgo: 0, bucketDays: 1 },
+  yesterday: { label: "Ontem", note: "ontem", startAgo: 1, endAgo: 1, bucketDays: 1 },
+  "7d": { label: "Últimos 7 dias", note: "nos últimos 7 dias", startAgo: 6, endAgo: 0, bucketDays: 1 },
+  "30d": { label: "Últimos 30 dias", note: "nos últimos 30 dias", startAgo: 29, endAgo: 0, bucketDays: 3 },
+  "2m": { label: "Último bimestre", note: "nos últimos 60 dias", startAgo: 59, endAgo: 0, bucketDays: 5 },
+  "6m": { label: "Último semestre", note: "nos últimos 6 meses", startAgo: 181, endAgo: 0, bucketDays: 16 }
 };
 
 // Ementa de referência por matéria (conteúdos típicos de prova).
@@ -993,13 +1014,23 @@ function renderWeekPlan() {
     let restante = studyMinutes;
     let descansoFeito = !breakFits;
     for (let slotIndex = 0; restante >= TOPIC_MINUTES_MIN; slotIndex += 1) {
-      const subject = subjects[(dayIndex + slotIndex) % subjects.length];
+      const overrideKey = `${dayIndex}-${slotIndex}`;
+      const override = state.planOverrides[overrideKey];
+      const subject = override ? override.subject : subjects[(dayIndex + slotIndex) % subjects.length];
       if ((queues[subject] || []).length) hasEmenta = true;
-      const session = nextSession(subject, cursor, slotIndex === 0 ? "conteúdo novo" : "questões e prática");
+      // Edição manual substitui a matéria/tópico sorteados, mas mantém a mesma
+      // regra de duração — se o tópico existe na ementa, usa o tempo dela.
+      const session = override
+        ? {
+            time: cursor, subject: override.subject, topic: override.topic, intent: "definido por você",
+            minutes: override.topic ? topicMinutes(override.subject, override.topic) : TOPIC_MINUTES_DEFAULT,
+            className: subjectTagClass(override.subject)
+          }
+        : nextSession(subject, cursor, slotIndex === 0 ? "conteúdo novo" : "questões e prática");
       let duration = Math.min(session.minutes, restante);
       // Sobra curta demais não vira bloco próprio: entra neste.
       if (restante - duration < TOPIC_MINUTES_MIN) duration = restante;
-      items.push({ ...session, duration });
+      items.push({ ...session, duration, dayIndex, slotIndex });
       cursor = addMinutes(cursor, duration);
       restante -= duration;
       // Descanso no meio do dia, e só se ainda houver estudo depois dele.
@@ -1023,7 +1054,13 @@ function renderWeekPlan() {
       // O tópico é o título do cartão; a matéria vira etiqueta acima dele. Sem
       // ementa preenchida não há tópico, então a matéria assume o título.
       const kicker = item.topic ? `<span class="week-session-subject">${item.subject}</span>` : "";
-      return `<div class="week-session ${item.className}"><span class="time">${item.time}</span><div class="week-session-main">${kicker}<strong>${escapeHtml(item.topic || item.subject)}</strong></div><span class="week-session-intent">${item.intent}</span><span class="week-session-duration">${item.duration} min</span></div>`;
+      return `<div class="week-session ${item.className}" data-day="${item.dayIndex}" data-slot="${item.slotIndex}" data-subject="${escapeHtml(item.subject)}" data-topic="${escapeHtml(item.topic || "")}">
+        <span class="time">${item.time}</span>
+        <div class="week-session-main">${kicker}<strong>${escapeHtml(item.topic || item.subject)}</strong></div>
+        <span class="week-session-intent">${item.intent}</span>
+        <span class="week-session-duration">${item.duration} min</span>
+        <button class="week-session-edit" data-action="edit-plan-slot" aria-label="Editar matéria e conteúdo"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg></button>
+      </div>`;
     }).join("");
     return `<article class="week-day ${dayIndex === 0 ? "today" : ""}"><div class="week-day-label"><strong>${label}</strong><span>${dateLabel}</span>${DAY_BRACE_SVG}</div><div class="week-day-sessions">${rows}</div></article>`;
   }).join("");
@@ -1058,6 +1095,34 @@ function lastNDates(n) {
     dates.push(date);
   }
   return dates;
+}
+
+// Dias (Date) dentro da janela do seletor de datas: de hoje-startAgo até
+// hoje-endAgo. É isso que garante que "Ontem" mostre só ontem — estudo mais
+// antigo simplesmente não entra na soma.
+function datesInRange(rangeKey) {
+  const cfg = PROGRESS_RANGES[rangeKey] || PROGRESS_RANGES["30d"];
+  const base = new Date();
+  base.setHours(0, 0, 0, 0);
+  const dates = [];
+  for (let ago = cfg.startAgo; ago >= cfg.endAgo; ago--) {
+    const date = new Date(base);
+    date.setDate(base.getDate() - ago);
+    dates.push(date);
+  }
+  return dates;
+}
+
+// Barras do gráfico grande: soma os dias da janela em grupos de bucketDays.
+function progressChartBars(dailyMap, rangeKey) {
+  const cfg = PROGRESS_RANGES[rangeKey] || PROGRESS_RANGES["30d"];
+  const dates = datesInRange(rangeKey);
+  const buckets = [];
+  for (let i = 0; i < dates.length; i += cfg.bucketDays) {
+    const slice = dates.slice(i, i + cfg.bucketDays);
+    buckets.push(slice.reduce((sum, date) => sum + (dailyMap.get(toDateKey(date))?.minutes || 0), 0));
+  }
+  return buckets;
 }
 
 function buildDailyMap(daily) {
@@ -1199,15 +1264,21 @@ function renderWeeklyChart(dailyMap) {
 }
 
 function renderProgressView(dailyMap, subjects, streak) {
-  const totalMinutes30 = lastNDates(30).reduce((sum, date) => sum + (dailyMap.get(toDateKey(date))?.minutes || 0), 0);
+  const rangeKey = PROGRESS_RANGES[state.progressRange] ? state.progressRange : "30d";
+  const cfg = PROGRESS_RANGES[rangeKey];
+
+  const totalMinutes = datesInRange(rangeKey).reduce((sum, date) => sum + (dailyMap.get(toDateKey(date))?.minutes || 0), 0);
   const hoursEl = $("#big-progress-hours");
-  if (hoursEl) hoursEl.innerHTML = `${Math.floor(totalMinutes30 / 60)}<span>h</span> ${totalMinutes30 % 60}<span>min</span>`;
+  if (hoursEl) hoursEl.innerHTML = `${Math.floor(totalMinutes / 60)}<span>h</span> ${totalMinutes % 60}<span>min</span>`;
+
+  const noteEl = $("#progress-hours-note");
+  if (noteEl) noteEl.textContent = cfg.note;
 
   const largeChartEl = $("#large-chart");
   if (largeChartEl) {
-    const minutes12 = lastNDates(12).map((date) => dailyMap.get(toDateKey(date))?.minutes || 0);
-    const max = Math.max(...minutes12, 1);
-    largeChartEl.innerHTML = minutes12.map((minutes) => `<span style="height:${Math.max(4, Math.round((minutes / max) * 100))}%"></span>`).join("");
+    const buckets = progressChartBars(dailyMap, rangeKey);
+    const max = Math.max(...buckets, 1);
+    largeChartEl.innerHTML = buckets.map((minutes) => `<span style="height:${Math.max(4, Math.round((minutes / max) * 100))}%"></span>`).join("");
   }
 
   const subjectListEl = $("#subject-progress-list");
@@ -1340,9 +1411,47 @@ function dismissStudyAlert() {
   renderStudyAlert();
 }
 
+// Seletor de datas da view de progresso: abre/fecha o menu, marca a opção
+// ativa e recarrega o dashboard com a janela escolhida. O menu é absoluto,
+// então abrir não empurra nada no layout.
+function syncProgressRangeUi() {
+  const cfg = PROGRESS_RANGES[state.progressRange];
+  const labelEl = $("#progress-range-label");
+  if (labelEl && cfg) labelEl.textContent = cfg.label;
+  $$("#progress-range-menu .date-dropdown-item").forEach((item) =>
+    item.classList.toggle("selected", item.dataset.range === state.progressRange)
+  );
+}
+
+function closeDateRangeMenu() {
+  const menu = $("#progress-range-menu");
+  const button = $("#progress-range-button");
+  if (!menu || menu.classList.contains("hidden")) return;
+  menu.classList.add("hidden");
+  if (button) button.setAttribute("aria-expanded", "false");
+}
+
+function toggleDateRangeMenu() {
+  const menu = $("#progress-range-menu");
+  const button = $("#progress-range-button");
+  if (!menu) return;
+  menu.classList.toggle("hidden");
+  if (button) button.setAttribute("aria-expanded", String(!menu.classList.contains("hidden")));
+}
+
+function selectProgressRange(rangeKey) {
+  if (!PROGRESS_RANGES[rangeKey]) return;
+  closeDateRangeMenu();
+  if (state.progressRange === rangeKey) return;
+  state.progressRange = rangeKey;
+  syncProgressRangeUi();
+  fetchDashboard();
+}
+
 async function fetchDashboard() {
   try {
-    const response = await fetch(`${API_BASE}/api/dashboard`, { credentials: "include" });
+    const range = PROGRESS_RANGES[state.progressRange] ? state.progressRange : "30d";
+    const response = await fetch(`${API_BASE}/api/dashboard?range=${range}`, { credentials: "include" });
     // 402: assinatura venceu no meio da sessão — volta para o paywall.
     if (response.status === 402) {
       state.user.plan = "free";
@@ -1732,6 +1841,71 @@ function savePlanFromModal() {
   showToast("Plano atualizado com seu novo foco.");
 }
 
+// --- Edição manual de um bloco do plano (botão de lápis) --------------------
+let editingPlanSlot = null;
+
+function openPlanSlotModal(card) {
+  editingPlanSlot = { day: card.dataset.day, slot: card.dataset.slot };
+  const subjects = planSubjects();
+  $("#plan-slot-subject").innerHTML = subjects
+    .map((subject) => `<option value="${escapeHtml(subject)}">${escapeHtml(subject)}</option>`)
+    .join("");
+  $("#plan-slot-subject").value = card.dataset.subject;
+  if (!$("#plan-slot-subject").value) $("#plan-slot-subject").selectedIndex = 0;
+  $("#plan-slot-topic").value = card.dataset.topic || "";
+  // true: mostra a ementa inteira, não só o que bate com o valor já preenchido
+  // (senão reabrir um bloco já editado mostraria só aquele tópico na lista).
+  renderPlanSlotTopicList(true);
+  $("#plan-slot-modal").classList.remove("hidden");
+}
+
+// Lista própria em vez de <datalist>: o nível ao lado do tópico não aparece
+// em <option label>, a maioria dos navegadores ignora esse atributo.
+// `ignoreFilter`: ao focar o campo, mostra a ementa inteira mesmo com texto já
+// digitado; só filtra de verdade a partir da próxima tecla.
+function renderPlanSlotTopicList(ignoreFilter) {
+  const subject = $("#plan-slot-subject").value;
+  const digitado = ignoreFilter ? "" : $("#plan-slot-topic").value.trim().toLowerCase();
+  const listEl = $("#plan-slot-topic-list");
+  const topics = topicsForSubject(subject)
+    .filter((topic) => !digitado || topic.toLowerCase().includes(digitado));
+
+  if (!topics.length) {
+    listEl.classList.add("hidden");
+    return;
+  }
+  listEl.innerHTML = topics.map((topic) => {
+    const status = state.syllabus[syllabusKey(subject, topic)] || "unknown";
+    return `<button type="button" class="topic-picker-item" data-topic="${escapeHtml(topic)}">
+      <span>${escapeHtml(topic)}</span>
+      <span class="status-pill ${status}">${SYLLABUS_STATUS_LABEL[status]}</span>
+    </button>`;
+  }).join("");
+  listEl.classList.remove("hidden");
+}
+
+function fillPlanSlotTopics() {
+  $("#plan-slot-topic").value = "";
+  renderPlanSlotTopicList();
+}
+
+function closePlanSlotModal() {
+  $("#plan-slot-modal").classList.add("hidden");
+  $("#plan-slot-topic-list").classList.add("hidden");
+  editingPlanSlot = null;
+}
+
+function savePlanSlot() {
+  if (!editingPlanSlot) return;
+  const subject = $("#plan-slot-subject").value;
+  const topic = $("#plan-slot-topic").value.trim().slice(0, 120);
+  state.planOverrides[`${editingPlanSlot.day}-${editingPlanSlot.slot}`] = { subject, topic };
+  closePlanSlotModal();
+  renderWeekPlan();
+  renderTodayCheck();
+  showToast("Bloco atualizado.");
+}
+
 function applyTheme(theme) {
   if (theme === "dark") {
     document.documentElement.setAttribute("data-theme", "dark");
@@ -1910,6 +2084,9 @@ document.addEventListener("click", async (event) => {
     if (action === "regenerate") openPlanModal();
     if (action === "close-plan-modal") closePlanModal();
     if (action === "save-plan") savePlanFromModal();
+    if (action === "edit-plan-slot") openPlanSlotModal(event.target.closest(".week-session"));
+    if (action === "close-plan-slot-modal") closePlanSlotModal();
+    if (action === "save-plan-slot") savePlanSlot();
     if (action === "open-syllabus") openSyllabusModal(actionTarget.dataset.subject);
     if (action === "remove-syllabus-topic") removeSyllabusTopic(event.target.closest(".syllabus-topic-row"));
     if (action === "restore-syllabus-topic") restoreSyllabusTopic(event.target.closest(".syllabus-removed-row"));
@@ -1931,6 +2108,8 @@ document.addEventListener("click", async (event) => {
     if (action === "close-log-session-modal") closeLogSessionModal();
     if (action === "save-log-session") await submitLogSession();
     if (action === "toggle-sidebar") $(".sidebar").classList.toggle("sidebar-open");
+    if (action === "toggle-date-range") toggleDateRangeMenu();
+    if (action === "select-date-range") selectProgressRange(actionTarget.dataset.range);
     if (action === "open-settings") openSettingsModal();
     if (action === "close-settings-modal") closeSettingsModal();
     if (action === "logout") {
@@ -1978,6 +2157,28 @@ document.addEventListener("click", async (event) => {
 });
 
 $("#log-session-subject").addEventListener("change", fillLogSessionTopics);
+// Trocar a matéria zera o tópico digitado (ele era de outra matéria) e
+// mostra a lista de novo; digitar filtra; clicar num item escolhe; clicar fora
+// ou fechar o modal esconde.
+$("#plan-slot-subject").addEventListener("change", fillPlanSlotTopics);
+// Sem o wrapper, o próprio evento do listener viraria o argumento ignoreFilter
+// (e um objeto é sempre "verdadeiro"), quebrando o filtro ao digitar.
+$("#plan-slot-topic").addEventListener("input", () => renderPlanSlotTopicList());
+$("#plan-slot-topic").addEventListener("focus", () => renderPlanSlotTopicList(true));
+$("#plan-slot-topic-list").addEventListener("mousedown", (event) => {
+  const item = event.target.closest(".topic-picker-item");
+  if (!item) return;
+  event.preventDefault(); // não deixa o input perder o foco antes do clique registrar
+  $("#plan-slot-topic").value = item.dataset.topic;
+  $("#plan-slot-topic-list").classList.add("hidden");
+});
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".topic-picker")) $("#plan-slot-topic-list").classList.add("hidden");
+});
+// Fecha o seletor de datas num clique fora (botão e menu ficam de fora).
+document.addEventListener("click", (event) => {
+  if (!event.target.closest("#progress-range-button") && !event.target.closest("#progress-range-menu")) closeDateRangeMenu();
+});
 
 $("#login-form").addEventListener("submit", async (event) => {
   event.preventDefault();
