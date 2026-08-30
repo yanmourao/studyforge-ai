@@ -71,14 +71,8 @@ const SYLLABUS = {
   "Química": ["Estrutura atômica", "Tabela periódica", "Ligações químicas", "Funções inorgânicas", "Reações químicas", "Estequiometria", "Soluções e concentração", "Termoquímica", "Química orgânica", "Eletroquímica"]
 };
 
-// Ementas que variam por objetivo. A base (SYLLABUS) atende ENEM, Vestibular,
-// Concurso, Faculdade e Outro; SYLLABUS_OVERRIDES ajusta matérias por prova.
-// (Ex.: Matemática do SAT usa os domínios oficiais do College Board.)
-const SYLLABUS_OVERRIDES = {
-  "SAT": {
-    "Matemática": ["Heart of Algebra", "Problem Solving and Data Analysis", "Passport to Advanced Math", "Geometria analítica", "Trigonometria", "Números complexos"]
-  }
-};
+// Ementas que variam por objetivo. Como o objetivo agora é fixo (ENEM),
+ // mantemos apenas a base SYLLABUS. O SYLLABUS_OVERRIDES foi removido.
 
 const SYLLABUS_STATUS_WEIGHT = { mastered: 1, learning: 0.5, unknown: 0 };
 const SYLLABUS_STATUS_LABEL = { mastered: "Já domino", learning: "Estudando", unknown: "Não sei" };
@@ -101,17 +95,14 @@ const HIGH_FREQUENCY_KEYS = new Set(
   Object.entries(HIGH_FREQUENCY_TOPICS).flatMap(([subject, topics]) => topics.map((topic) => syllabusKey(subject, topic)))
 );
 
-// A curadoria acima é do ENEM; outras provas têm distribuição diferente, então a
-// tag só aparece para quem escolheu ENEM como objetivo.
+// A curadoria acima é do ENEM (objetivo fixo).
 function isHighFrequency(subject, topic) {
-  return state.user.objective === "ENEM" && HIGH_FREQUENCY_KEYS.has(syllabusKey(subject, topic));
+  return HIGH_FREQUENCY_KEYS.has(syllabusKey(subject, topic));
 }
 
 // Dificuldade por tópico, agrupada por nível para ser fácil de reordenar. O
 // critério é carga conceitual e abstração — o que costuma travar estudante —,
 // não índice de acerto medido: é curadoria, igual à lista de frequência acima.
-// Vale para a ementa base (ENEM e afins); tópicos de SYLLABUS_OVERRIDES, como
-// os do SAT, ficam sem etiqueta.
 const TOPIC_DIFFICULTY = {
   "Matemática": {
     facil: ["Estatística e gráficos", "Matemática financeira"],
@@ -160,7 +151,7 @@ function topicDifficulty(subject, topic) {
 }
 
 // Resumo de apoio por tópico, exibido dentro da ementa. Tópicos sem entrada
-// aqui (e os de SYLLABUS_OVERRIDES) simplesmente não mostram resumo; `image`
+// aqui simplesmente não mostram resumo; `image`
 // é opcional. As imagens vêm do Wikimedia Commons via Special:FilePath, que
 // resolve sempre para a versão atual do arquivo.
 const COMMONS = (file, width = 520) =>
@@ -548,16 +539,14 @@ function topicMinutes(subject, topic) {
 // da base vêm de uma constante, então uma linha apagada voltaria no próximo load.
 const isRemoved = (subject, topic) => state.syllabus[syllabusKey(subject, topic)] === "removed";
 
-// Tópicos "oficiais" da matéria para o objetivo atual (com override por prova).
+// Tópicos "oficiais" da matéria (ENEM fixo).
 function baseTopics(subject) {
-  const override = (SYLLABUS_OVERRIDES[state.user.objective] || {})[subject];
-  return (override || SYLLABUS[subject] || []).filter((topic) => !isRemoved(subject, topic));
+  return (SYLLABUS[subject] || []).filter((topic) => !isRemoved(subject, topic));
 }
 
 // Tópicos que o próprio aluno adicionou (existem em state.syllabus mas não na base).
 function customTopics(subject) {
-  const override = (SYLLABUS_OVERRIDES[state.user.objective] || {})[subject];
-  const base = new Set(override || SYLLABUS[subject] || []);
+  const base = new Set(SYLLABUS[subject] || []);
   const prefix = `${subject}|||`;
   return Object.keys(state.syllabus)
     .filter((key) => key.startsWith(prefix))
@@ -617,6 +606,10 @@ function showScreen(screenId) {
   const screen = $(`#${screenId}`);
   if (screen) screen.classList.add("active-screen");
   window.scrollTo({ top: 0, behavior: "smooth" });
+  if (screenId === "landing-screen" || screenId === "landing-page-screen") {
+    document.documentElement.removeAttribute("data-theme");
+  }
+  if (screenId === "landing-page-screen") initCarousel();
 }
 
 function updateOnboardingProgress() {
@@ -697,7 +690,7 @@ async function loginUser(email, password) {
 
 function collectFormData() {
   state.user.name = $("#user-name").value.trim() || "Estudante";
-  state.user.objective = $(".choice.selected")?.dataset.value || "ENEM";
+  state.user.objective = "ENEM";
   state.user.days = Number($("#exam-days").value) || 90;
   state.user.hours = Number($("#daily-hours").value) || 2;
   state.user.level = $("#level").value;
@@ -1456,6 +1449,10 @@ async function fetchDashboard() {
     if (response.status === 402) {
       state.user.plan = "free";
       showScreen("paywall-screen");
+      const savedTheme = localStorage.getItem("studyforge-theme");
+      if (savedTheme === "dark") {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
       return;
     }
     if (!response.ok) return;
@@ -1722,6 +1719,10 @@ function enterDashboard() {
   switchView("overview");
   fetchDashboard();
   fetchSyllabus();
+  const savedTheme = localStorage.getItem("studyforge-theme");
+  if (savedTheme === "dark") {
+    document.documentElement.setAttribute("data-theme", "dark");
+  }
 }
 
 // Portão de pagamento no front. O bloqueio real é o requirePlus do servidor;
@@ -1730,6 +1731,10 @@ function enterAppOrPaywall() {
   if (state.user.plan !== "plus") {
     showScreen("paywall-screen");
     renderPaywallPrice();
+    const savedTheme = localStorage.getItem("studyforge-theme");
+    if (savedTheme === "dark") {
+      document.documentElement.setAttribute("data-theme", "dark");
+    }
     return;
   }
   enterDashboard();
@@ -1780,12 +1785,20 @@ function goToOnboarding() {
   $(".form-card").classList.remove("is-generating");
   $("#generating-state").classList.remove("active");
   updateOnboardingProgress();
+  const savedTheme = localStorage.getItem("studyforge-theme");
+  if (savedTheme === "dark") {
+    document.documentElement.setAttribute("data-theme", "dark");
+  }
 }
 
 function goToLogin(step = "login-form") {
   showScreen("login-screen");
   $("#login-form").reset();
   showLoginStep(step);
+  const savedTheme = localStorage.getItem("studyforge-theme");
+  if (savedTheme === "dark") {
+    document.documentElement.setAttribute("data-theme", "dark");
+  }
 }
 
 // Login, "esqueci a senha" e "nova senha" são três .form-step no mesmo card.
@@ -2023,13 +2036,10 @@ async function startCheckout() {
   }
 }
 
-let toastTimer;
 function showToast(message) {
   const toast = $("#toast");
   $("#toast-message").textContent = message;
   toast.classList.add("show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.remove("show"), 3000);
 }
 
 document.addEventListener("click", async (event) => {
@@ -2047,6 +2057,7 @@ document.addEventListener("click", async (event) => {
     if (action === "forgot-password") showLoginStep("forgot-form");
     if (action === "back-to-login") goToLogin();
     if (action === "back-landing") showScreen("landing-screen");
+    if (action === "landing-page") showScreen("landing-page-screen");
     if (action === "next-step") {
       if (state.step === 1) {
         actionTarget.disabled = true;
@@ -2280,6 +2291,33 @@ $("#syllabus-modal").addEventListener("click", (event) => {
   if (event.target.id === "syllabus-modal") closeSyllabusModal();
 });
 
+// Landing page carousel
+let carouselIndex = 0;
+const carouselTrack = $("#carousel-track");
+const carouselSlides = $$(".carousel-slide");
+const carouselIndicators = $("#carousel-indicators");
+
+function initCarousel() {
+  if (!carouselTrack || !carouselIndicators) return;
+  carouselIndicators.innerHTML = "";
+  carouselSlides.forEach((_, i) => {
+    const dot = document.createElement("button");
+    dot.className = "carousel-dot" + (i === 0 ? " active" : "");
+    dot.dataset.index = i;
+    dot.setAttribute("aria-label", `Slide ${i + 1}`);
+    dot.addEventListener("click", () => goToSlide(i));
+    carouselIndicators.appendChild(dot);
+  });
+}
+
+function goToSlide(index) {
+  if (!carouselTrack) return;
+  carouselIndex = Math.max(0, Math.min(index, carouselSlides.length - 1));
+  carouselTrack.style.transform = `translateX(-${carouselIndex * 100}%)`;
+  $$(".carousel-slide").forEach((slide, i) => slide.classList.toggle("active", i === carouselIndex));
+  $$(".carousel-dot").forEach((dot, i) => dot.classList.toggle("active", i === carouselIndex));
+}
+
 $("#syllabus-new-topic").addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
@@ -2309,6 +2347,24 @@ if (weeklyChartEl) {
     const tip = $("#weekly-chart-tooltip");
     if (tip) tip.classList.add("hidden");
   });
+}
+
+// Landing page video demo
+function playVideoDemo() {
+  const placeholder = $("#video-placeholder");
+  if (!placeholder) return;
+  placeholder.innerHTML = `
+    <iframe 
+      width="100%" 
+      height="100%" 
+      src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&rel=0" 
+      title="StudyForge AI - Demo" 
+      frameborder="0" 
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+      allowfullscreen>
+</iframe>
+  `;
+  placeholder.removeAttribute("data-action");
 }
 
 async function restoreSession() {
