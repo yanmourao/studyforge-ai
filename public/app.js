@@ -761,7 +761,6 @@ function setUserLabels() {
   $("#plan-hours").textContent = `${state.user.studyTimeStart} às ${state.user.studyTimeEnd}`;
   $("#plan-level").textContent = state.user.level.toLowerCase();
   $("#current-date").textContent = formatDate();
-  $("#today-panel-date").textContent = formatShortDate();
 
   const isPlus = state.user.plan === "plus";
   const planLabelEl = $("#sidebar-plan-label");
@@ -1126,6 +1125,18 @@ function buildDailyMap(daily) {
   return map;
 }
 
+function buildDailyBySubjectMap(dailyBySubject) {
+  const map = new Map();
+  dailyBySubject.forEach((row) => {
+    const date = row.date;
+    const subject = row.subject;
+    const minutes = Number(row.minutes) || 0;
+    if (!map.has(date)) map.set(date, new Map());
+    map.get(date).set(subject, minutes);
+  });
+  return map;
+}
+
 function computeStreak(dailyMap) {
   let current = 0;
   const cursor = new Date();
@@ -1200,7 +1211,7 @@ function renderWeekMetric(dailyMap) {
   }
 }
 
-function renderWeeklyChart(dailyMap) {
+function renderWeeklyChart(dailyMap, dailyBySubjectMap) {
   const chartEl = $("#weekly-line-chart");
   const labelsEl = $("#weekly-chart-labels");
   if (!chartEl || !labelsEl) return;
@@ -1222,32 +1233,95 @@ function renderWeeklyChart(dailyMap) {
   const xAt = (i) => ((i + 0.5) / 7) * 100;
   const yAt = (minutes) => 98 - (minutes / maxMinutes) * 90;
 
-  // A linha "Estudado" só vai até hoje — dias futuros não viram zero (isso
-  // distorceria o gráfico), ficam sem ponto.
-  const studyPoints = [];
-  weekDates.forEach((date, i) => {
-    if (date > today) return;
-    studyPoints.push({ i, x: xAt(i), y: yAt(minutesPerDay[i]), minutes: minutesPerDay[i], isToday: toDateKey(date) === toDateKey(today) });
+  // Collect subjects that have data this week
+  const subjectsWithData = new Set();
+  weekDates.forEach((date) => {
+    const subjectMap = dailyBySubjectMap.get(toDateKey(date));
+    if (subjectMap) subjectMap.forEach((_, subject) => subjectsWithData.add(subject));
   });
 
-  const studyPath = studyPoints.map((p, idx) => `${idx === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ");
+  const subjectsList = Array.from(subjectsWithData);
+  const colorMap = {};
+  subjectsList.forEach((subject, idx) => {
+    colorMap[subject] = subjectColorClass(subject);
+  });
+
+  const svgPaths = [];
+  const allMarkers = [];
+
+  // Meta line (target)
   const metaY = yAt(metaMinutes).toFixed(2);
   const metaPath = `M ${xAt(0).toFixed(2)} ${metaY} L ${xAt(6).toFixed(2)} ${metaY}`;
+  svgPaths.push(`<path class="line-meta" vector-effect="non-scaling-stroke" d="${metaPath}" />`);
 
-  const svg = `<svg class="line-chart-svg" viewBox="0 0 100 100" preserveAspectRatio="none">` +
-    `<path class="line-meta" vector-effect="non-scaling-stroke" d="${metaPath}" />` +
-    (studyPoints.length > 1 ? `<path class="line-study" vector-effect="non-scaling-stroke" d="${studyPath}" />` : "") +
-    `</svg>`;
+  // One line per subject
+  subjectsList.forEach((subject) => {
+    const studyPoints = [];
+    weekDates.forEach((date, i) => {
+      if (date > today) return;
+      const subjectMap = dailyBySubjectMap.get(toDateKey(date));
+      const minutes = subjectMap?.get(subject) || 0;
+      if (minutes > 0) {
+        studyPoints.push({ i, x: xAt(i), y: yAt(minutes), minutes, isToday: toDateKey(date) === toDateKey(today) });
+      }
+    });
 
-  const markers = studyPoints.map((p) =>
-    `<div class="line-marker ${p.isToday ? "today" : ""}" style="left:${p.x.toFixed(2)}%;top:${p.y.toFixed(2)}%" data-min="${p.minutes}" data-label="${WEEKDAY_LABELS[p.i]}"></div>`
-  ).join("");
+    if (studyPoints.length > 1) {
+      const path = studyPoints.map((p, idx) => `${idx === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ");
+      const colorClass = colorMap[subject];
+      svgPaths.push(`<path class="line-study line-${colorClass}" vector-effect="non-scaling-stroke" d="${path}" />`);
+
+      studyPoints.forEach((p) => {
+        allMarkers.push(
+          `<div class="line-marker ${p.isToday ? "today" : ""} marker-${colorMap[subject]}" ` +
+          `style="left:${p.x.toFixed(2)}%;top:${p.y.toFixed(2)}%" ` +
+          `data-min="${p.minutes}" data-label="${WEEKDAY_LABELS[p.i]}" data-subject="${subject}"></div>`
+        );
+      });
+    }
+  });
+
+  // Total study line (aggregate)
+  const totalStudyPoints = [];
+  weekDates.forEach((date, i) => {
+    if (date > today) return;
+    totalStudyPoints.push({ i, x: xAt(i), y: yAt(minutesPerDay[i]), minutes: minutesPerDay[i], isToday: toDateKey(date) === toDateKey(today) });
+  });
+
+  if (totalStudyPoints.length > 1) {
+    const totalPath = totalStudyPoints.map((p, idx) => `${idx === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ");
+    svgPaths.push(`<path class="line-study line-total" vector-effect="non-scaling-stroke" d="${totalPath}" />`);
+
+    totalStudyPoints.forEach((p) => {
+      allMarkers.push(
+        `<div class="line-marker ${p.isToday ? "today" : ""} marker-total" ` +
+        `style="left:${p.x.toFixed(2)}%;top:${p.y.toFixed(2)}%" ` +
+        `data-min="${p.minutes}" data-label="${WEEKDAY_LABELS[p.i]}" data-subject="Total"></div>`
+      );
+    });
+  }
+
+  const svg = `<svg class="line-chart-svg" viewBox="0 0 100 100" preserveAspectRatio="none">${svgPaths.join("")}</svg>`;
+  const markers = allMarkers.join("");
 
   chartEl.innerHTML = svg + markers + `<div class="chart-tooltip hidden" id="weekly-chart-tooltip"></div>`;
 
   labelsEl.innerHTML = weekDates.map((date, i) =>
     `<span class="${toDateKey(date) === toDateKey(today) ? "today-label" : ""}">${WEEKDAY_LABELS[i]}</span>`
   ).join("");
+
+  // Build legend
+  const legendEl = $("#weekly-chart-legend");
+  if (legendEl) {
+    const legendItems = [
+      { label: "Meta", class: "line-meta" },
+      ...subjectsList.map((s) => ({ label: s, class: `line-${colorMap[s]}` })),
+      { label: "Total", class: "line-total" }
+    ];
+    legendEl.innerHTML = legendItems.map((item) =>
+      `<span class="legend-item"><i class="${item.class}"></i>${item.label}</span>`
+    ).join("");
+  }
 
   const yAxisEl = $("#chart-y-axis");
   if (yAxisEl) {
@@ -1342,12 +1416,13 @@ function applyDashboardData(data) {
 
   const dailyMap = buildDailyMap(data.daily);
   const streak = computeStreak(dailyMap);
+  const dailyBySubjectMap = buildDailyBySubjectMap(data.dailyBySubject);
 
   renderSchedule();
   renderTodayCheck();
   renderStreakCard(dailyMap, streak);
   renderWeekMetric(dailyMap);
-  renderWeeklyChart(dailyMap);
+  renderWeeklyChart(dailyMap, dailyBySubjectMap);
   renderProgressView(dailyMap, data.subjects, streak);
 
   state.studyAlerts = (data.suggestions || []).filter(

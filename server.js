@@ -731,6 +731,16 @@ app.get("/api/dashboard", async (req, res) => {
       [userId]
     );
 
+    const dailyBySubject = await pool.query(
+      `SELECT session_date::text AS date, subject,
+              COALESCE(SUM(duration_minutes) FILTER (WHERE completed), 0) AS minutes
+       FROM study_sessions
+       WHERE user_id = $1 ${dateFilter}
+       GROUP BY session_date, subject
+       ORDER BY session_date, subject`,
+      [userId]
+    );
+
     // Tópicos com 2h ou mais de estudo que a pessoa ainda deixou em "Não sei":
     // o front notifica sugerindo mudar o estado. Quem muda é a pessoa, não o
     // servidor. Casa `detail` com o tópico da ementa, então texto livre de
@@ -765,7 +775,7 @@ app.get("/api/dashboard", async (req, res) => {
       [userId, MINUTOS_PARA_NOTIFICAR]
     );
 
-    res.json({ today: today.rows, daily: daily.rows, subjects: subjects.rows, suggestions: sugestoes.rows });
+    res.json({ today: today.rows, daily: daily.rows, dailyBySubject: dailyBySubject.rows, subjects: subjects.rows, suggestions: sugestoes.rows });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Erro ao carregar dados do dashboard." });
