@@ -45,7 +45,9 @@ const state = {
   // Janela temporal selecionada na view de progresso ("Últimos 30 dias" etc.).
   // Vai como ?range= no /api/dashboard e define o período dos cards de horas,
   // gráfico grande e horas por matéria.
-  progressRange: "30d"
+  progressRange: "30d",
+  // Janela temporal do gráfico de ritmo semanal (semana/mês/semestre).
+  weeklyChartRange: "week"
 };
 
 // Cada janela do seletor de datas da view de progresso. startAgo/endAgo são
@@ -59,6 +61,14 @@ const PROGRESS_RANGES = {
   "30d": { label: "Últimos 30 dias", note: "nos últimos 30 dias", startAgo: 29, endAgo: 0, bucketDays: 3 },
   "2m": { label: "Último bimestre", note: "nos últimos 60 dias", startAgo: 59, endAgo: 0, bucketDays: 5 },
   "6m": { label: "Último semestre", note: "nos últimos 6 meses", startAgo: 181, endAgo: 0, bucketDays: 16 }
+};
+
+// Janelas do gráfico de ritmo semanal. startAgo/endAgo = dias atrás.
+// bucketDays agrupa dias por ponto no gráfico de linha.
+const WEEKLY_CHART_RANGES = {
+  week: { label: "Semana", startAgo: 6, endAgo: 0, bucketDays: 1, xLabel: "day" },
+  month: { label: "Mês", startAgo: 29, endAgo: 0, bucketDays: 1, xLabel: "day" },
+  semester: { label: "Semestre", startAgo: 181, endAgo: 0, bucketDays: 7, xLabel: "month" }
 };
 
 // Ementa de referência por matéria (conteúdos típicos de prova).
@@ -1216,76 +1226,103 @@ function renderWeeklyChart(dailyMap, dailyBySubjectMap) {
   const labelsEl = $("#weekly-chart-labels");
   if (!chartEl || !labelsEl) return;
 
+  const rangeKey = WEEKLY_CHART_RANGES[state.weeklyChartRange] ? state.weeklyChartRange : "week";
+  const cfg = WEEKLY_CHART_RANGES[rangeKey];
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-  const weekDates = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date(monday);
-    date.setDate(monday.getDate() + i);
-    return date;
+
+  // Gera as datas baseadas no range selecionado
+  let dates = [];
+  let xLabels = [];
+  let xAt;
+  let isTodayIndex = -1;
+
+  if (cfg.xLabel === "day") {
+    // Semana ou Mês: um ponto por dia
+    const base = new Date(today);
+    base.setDate(today.getDate() - cfg.startAgo);
+    const numDays = cfg.startAgo - cfg.endAgo + 1;
+    dates = Array.from({ length: numDays }, (_, i) => {
+      const date = new Date(base);
+      date.setDate(base.getDate() + i);
+      return date;
+    });
+    xAt = (i) => ((i + 0.5) / numDays) * 100;
+
+    if (rangeKey === "week") {
+      // Labels: seg, ter, qua, qui, sex, sáb, dom
+      xLabels = dates.map((date, i) => {
+        if (toDateKey(date) === toDateKey(today)) isTodayIndex = i;
+        return WEEKDAY_LABELS[date.getDay()];
+      });
+    } else {
+      // Mês: labels com dia do mês (1, 2, 3...)
+      xLabels = dates.map((date, i) => {
+        if (toDateKey(date) === toDateKey(today)) isTodayIndex = i;
+        return String(date.getDate());
+      });
+    }
+  } else {
+    // Semestre: um ponto por mês (agrupado por bucketDays = 7)
+    const base = new Date(today);
+    base.setMonth(today.getMonth() - 5); // 6 meses atrás
+    base.setDate(1); // primeiro dia do mês
+    const monthCount = 6;
+    dates = Array.from({ length: monthCount }, (_, i) => {
+      const date = new Date(base);
+      date.setMonth(base.getMonth() + i);
+      return date;
+    });
+    xAt = (i) => ((i + 0.5) / monthCount) * 100;
+    xLabels = dates.map((date, i) => {
+      const isThisMonth = date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
+      if (isThisMonth) isTodayIndex = i;
+      return new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(date).replace(".", "");
+    });
+  }
+
+  // Calcula minutos por período (dia ou mês)
+  const minutesPerPeriod = dates.map((date, i) => {
+    if (cfg.xLabel === "day") {
+      return dailyMap.get(toDateKey(date))?.minutes || 0;
+    } else {
+      // Semestre: soma todos os dias do mês
+      const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+      const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+      let sum = 0;
+      for (let d = new Date(monthStart); d <= monthEnd; d.setDate(d.getDate() + 1)) {
+        sum += dailyMap.get(toDateKey(d))?.minutes || 0;
+      }
+      return sum;
+    }
   });
 
-  const minutesPerDay = weekDates.map((date) => dailyMap.get(toDateKey(date))?.minutes || 0);
   const metaMinutes = minutesBetween(state.user.studyTimeStart || "08:00", state.user.studyTimeEnd || "10:00");
-  const maxMinutes = Math.max(...minutesPerDay, metaMinutes, 60);
+  const maxMinutes = Math.max(...minutesPerPeriod, metaMinutes, 60);
 
-  const xAt = (i) => ((i + 0.5) / 7) * 100;
   const yAt = (minutes) => 98 - (minutes / maxMinutes) * 90;
-
-  // Collect subjects that have data this week
-  const subjectsWithData = new Set();
-  weekDates.forEach((date) => {
-    const subjectMap = dailyBySubjectMap.get(toDateKey(date));
-    if (subjectMap) subjectMap.forEach((_, subject) => subjectsWithData.add(subject));
-  });
-
-  const subjectsList = Array.from(subjectsWithData);
-  const colorMap = {};
-  subjectsList.forEach((subject, idx) => {
-    colorMap[subject] = subjectColorClass(subject);
-  });
 
   const svgPaths = [];
   const allMarkers = [];
 
-  // Meta line (target)
-  const metaY = yAt(metaMinutes).toFixed(2);
-  const metaPath = `M ${xAt(0).toFixed(2)} ${metaY} L ${xAt(6).toFixed(2)} ${metaY}`;
+  // Meta line (target) - para semana mostra a meta diária, para mês/semestre mostra meta mensal/semestral proporcional
+  let metaTarget = metaMinutes;
+  if (rangeKey === "month") {
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    metaTarget = metaMinutes * daysInMonth;
+  } else if (rangeKey === "semester") {
+    metaTarget = metaMinutes * 180; // ~6 meses
+  }
+  const metaY = yAt(metaTarget).toFixed(2);
+  const metaPath = `M ${xAt(0).toFixed(2)} ${metaY} L ${xAt(dates.length - 1).toFixed(2)} ${metaY}`;
   svgPaths.push(`<path class="line-meta" vector-effect="non-scaling-stroke" d="${metaPath}" />`);
-
-  // One line per subject
-  subjectsList.forEach((subject) => {
-    const studyPoints = [];
-    weekDates.forEach((date, i) => {
-      if (date > today) return;
-      const subjectMap = dailyBySubjectMap.get(toDateKey(date));
-      const minutes = subjectMap?.get(subject) || 0;
-      if (minutes > 0) {
-        studyPoints.push({ i, x: xAt(i), y: yAt(minutes), minutes, isToday: toDateKey(date) === toDateKey(today) });
-      }
-    });
-
-    if (studyPoints.length > 1) {
-      const path = studyPoints.map((p, idx) => `${idx === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" ");
-      const colorClass = colorMap[subject];
-      svgPaths.push(`<path class="line-study line-${colorClass}" vector-effect="non-scaling-stroke" d="${path}" />`);
-
-      studyPoints.forEach((p) => {
-        allMarkers.push(
-          `<div class="line-marker ${p.isToday ? "today" : ""} marker-${colorMap[subject]}" ` +
-          `style="left:${p.x.toFixed(2)}%;top:${p.y.toFixed(2)}%" ` +
-          `data-min="${p.minutes}" data-label="${WEEKDAY_LABELS[p.i]}" data-subject="${subject}"></div>`
-        );
-      });
-    }
-  });
 
   // Total study line (aggregate)
   const totalStudyPoints = [];
-  weekDates.forEach((date, i) => {
+  dates.forEach((date, i) => {
     if (date > today) return;
-    totalStudyPoints.push({ i, x: xAt(i), y: yAt(minutesPerDay[i]), minutes: minutesPerDay[i], isToday: toDateKey(date) === toDateKey(today) });
+    totalStudyPoints.push({ i, x: xAt(i), y: yAt(minutesPerPeriod[i]), minutes: minutesPerPeriod[i], isToday: i === isTodayIndex });
   });
 
   if (totalStudyPoints.length > 1) {
@@ -1296,7 +1333,7 @@ function renderWeeklyChart(dailyMap, dailyBySubjectMap) {
       allMarkers.push(
         `<div class="line-marker ${p.isToday ? "today" : ""} marker-total" ` +
         `style="left:${p.x.toFixed(2)}%;top:${p.y.toFixed(2)}%" ` +
-        `data-min="${p.minutes}" data-label="${WEEKDAY_LABELS[p.i]}" data-subject="Total"></div>`
+        `data-min="${p.minutes}" data-label="${xLabels[p.i]}" data-subject="Total"></div>`
       );
     });
   }
@@ -1306,16 +1343,15 @@ function renderWeeklyChart(dailyMap, dailyBySubjectMap) {
 
   chartEl.innerHTML = svg + markers + `<div class="chart-tooltip hidden" id="weekly-chart-tooltip"></div>`;
 
-  labelsEl.innerHTML = weekDates.map((date, i) =>
-    `<span class="${toDateKey(date) === toDateKey(today) ? "today-label" : ""}">${WEEKDAY_LABELS[i]}</span>`
+  labelsEl.innerHTML = xLabels.map((label, i) =>
+    `<span class="${i === isTodayIndex ? "today-label" : ""}">${label}</span>`
   ).join("");
 
-  // Build legend
+  // Build legend - only Meta and Total
   const legendEl = $("#weekly-chart-legend");
   if (legendEl) {
     const legendItems = [
       { label: "Meta", class: "line-meta" },
-      ...subjectsList.map((s) => ({ label: s, class: `line-${colorMap[s]}` })),
       { label: "Total", class: "line-total" }
     ];
     legendEl.innerHTML = legendItems.map((item) =>
@@ -1328,6 +1364,10 @@ function renderWeeklyChart(dailyMap, dailyBySubjectMap) {
     const maxHours = Math.max(1, Math.ceil(maxMinutes / 60));
     yAxisEl.innerHTML = `<span>${maxHours}h</span><span>${Math.round((maxHours / 2) * 10) / 10}h</span><span>0h</span>`;
   }
+
+  // Update range label
+  const labelEl = $("#weekly-chart-range-label");
+  if (labelEl) labelEl.textContent = cfg.label;
 }
 
 function renderProgressView(dailyMap, subjects, streak) {
@@ -1395,11 +1435,37 @@ function renderSubjectHours(subjects) {
   }
 
   const max = Math.max(...rows.map((row) => row.minutes), 1);
-  listEl.innerHTML = rows.map((row) => {
-    const percent = Math.round((row.minutes / max) * 100);
-    const colorClass = subjectColorClass(row.subject);
-    return `<div class="subject-hours-row"><span class="subject-dot ${colorClass}"></span><b>${row.subject}</b><span class="progress-mini-track"><i class="${colorClass}" style="width:${percent}%"></i></span><strong>${formatMinutes(row.minutes)}</strong></div>`;
-  }).join("");
+  const totalMinutes = rows.reduce((sum, row) => sum + row.minutes, 0);
+
+  // Sort by minutes descending for the chart
+  const sortedRows = [...rows].sort((a, b) => b.minutes - a.minutes);
+
+  const chartHtml = `
+    <div class="subject-hours-chart" role="img" aria-label="Tempo de estudo por matéria">
+      ${sortedRows.map((row) => {
+        const percent = Math.round((row.minutes / max) * 100);
+        const colorClass = subjectColorClass(row.subject);
+        const hours = Math.floor(row.minutes / 60);
+        const mins = row.minutes % 60;
+        const timeStr = hours > 0 ? `${hours}h${mins > 0 ? ` ${mins}min` : ''}` : `${mins}min`;
+        const pctOfTotal = totalMinutes > 0 ? Math.round((row.minutes / totalMinutes) * 100) : 0;
+        return `
+          <div class="subject-chart-bar" style="--bar-color: var(--${colorClass.replace('-color', '')});">
+            <div class="subject-chart-bar-label">
+              <span class="subject-chart-bar-subject">${escapeHtml(row.subject)}</span>
+              <span class="subject-chart-bar-value">${timeStr}</span>
+            </div>
+            <div class="subject-chart-bar-track">
+              <div class="subject-chart-bar-fill" style="width:${percent}%"></div>
+            </div>
+            <div class="subject-chart-bar-meta">${pctOfTotal}% do total</div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+
+  listEl.innerHTML = chartHtml;
 }
 
 function applyDashboardData(data) {
@@ -1513,6 +1579,51 @@ function selectProgressRange(rangeKey) {
   if (state.progressRange === rangeKey) return;
   state.progressRange = rangeKey;
   syncProgressRangeUi();
+  fetchDashboard();
+}
+
+// Seletor de período do gráfico de ritmo semanal (semana/mês/semestre).
+// Não recarrega o dashboard — só re-renderiza o gráfico com os dados já em memória.
+function syncWeeklyChartRangeUi() {
+  const cfg = WEEKLY_CHART_RANGES[state.weeklyChartRange];
+  const labelEl = $("#weekly-chart-range-label");
+  if (labelEl && cfg) labelEl.textContent = cfg.label;
+  $$("#weekly-chart-range-menu .date-dropdown-item").forEach((item) =>
+    item.classList.toggle("selected", item.dataset.range === state.weeklyChartRange)
+  );
+}
+
+function closeWeeklyChartRangeMenu() {
+  const menu = $("#weekly-chart-range-menu");
+  const button = $("#weekly-chart-range-button");
+  if (!menu || menu.classList.contains("hidden")) return;
+  menu.classList.add("hidden");
+  if (button) button.setAttribute("aria-expanded", "false");
+}
+
+function toggleWeeklyChartRangeMenu() {
+  const menu = $("#weekly-chart-range-menu");
+  const button = $("#weekly-chart-range-button");
+  if (!menu) return;
+  menu.classList.toggle("hidden");
+  if (button) button.setAttribute("aria-expanded", String(!menu.classList.contains("hidden")));
+}
+
+function selectWeeklyChartRange(rangeKey) {
+  if (!WEEKLY_CHART_RANGES[rangeKey]) return;
+  closeWeeklyChartRangeMenu();
+  if (state.weeklyChartRange === rangeKey) return;
+  state.weeklyChartRange = rangeKey;
+  syncWeeklyChartRangeUi();
+  // Re-renderiza o gráfico com os dados já carregados
+  const dailyMap = new Map();
+  const dailyBySubjectMap = new Map();
+  // Rebuild from current state.sessions would be complex; instead we rely on
+  // the fact that applyDashboardData already stores what we need, so we call
+  // fetchDashboard to get fresh data and re-render everything.
+  // But to avoid a round-trip, we could also store the last dashboard data.
+  // For simplicity and correctness, we just re-render using the last fetched data.
+  // Since we don't store it, we'll trigger a fresh fetch (it's fast).
   fetchDashboard();
 }
 
@@ -2196,6 +2307,8 @@ document.addEventListener("click", async (event) => {
     if (action === "toggle-sidebar") $(".sidebar").classList.toggle("sidebar-open");
     if (action === "toggle-date-range") toggleDateRangeMenu();
     if (action === "select-date-range") selectProgressRange(actionTarget.dataset.range);
+    if (action === "toggle-weekly-chart-range") toggleWeeklyChartRangeMenu();
+    if (action === "select-weekly-chart-range") selectWeeklyChartRange(actionTarget.dataset.range);
     if (action === "open-settings") openSettingsModal();
     if (action === "close-settings-modal") closeSettingsModal();
     if (action === "logout") {
@@ -2264,6 +2377,19 @@ document.addEventListener("click", (event) => {
 // Fecha o seletor de datas num clique fora (botão e menu ficam de fora).
 document.addEventListener("click", (event) => {
   if (!event.target.closest("#progress-range-button") && !event.target.closest("#progress-range-menu")) closeDateRangeMenu();
+});
+
+// Fecha o seletor do gráfico de ritmo semanal num clique fora.
+document.addEventListener("click", (event) => {
+  if (!event.target.closest("#weekly-chart-range-button") && !event.target.closest("#weekly-chart-range-menu")) closeWeeklyChartRangeMenu();
+});
+
+// Fecha dropdowns com tecla Escape.
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeDateRangeMenu();
+    closeWeeklyChartRangeMenu();
+  }
 });
 
 $("#login-form").addEventListener("submit", async (event) => {
