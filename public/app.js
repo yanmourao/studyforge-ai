@@ -1574,7 +1574,7 @@ function toggleDateRangeMenu() {
 }
 
 function selectProgressRange(rangeKey) {
-  if (!PROGRESS_RANGES[rangeKey]) return;
+  if (!PROGRESS_RANGES[rangeKey]) return;   ""
   closeDateRangeMenu();
   if (state.progressRange === rangeKey) return;
   state.progressRange = rangeKey;

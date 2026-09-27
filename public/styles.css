@@ -139,6 +139,14 @@ a { color: inherit; text-decoration: none; }
 .demo-section { padding: 80px 0 100px; }
 .demo-section .screenshot-carousel { max-width: 980px; margin: 0 auto; }
 .app-screenshot { background: transparent; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: 0 24px 48px rgba(35, 38, 46, .08); }
+.app-screenshot.theme-light {
+  --ink: #202022;
+  --ink-soft: #64646a;
+  --muted: #96959d;
+  --line: #e8e7e4;
+  --canvas: #f7f8fa;
+  --surface: #ffffff;
+}
 .app-screenshot .shot-header { align-items: center; background: transparent; border-bottom: 1px solid var(--line); display: flex; gap: 12px; padding: 14px 16px; }
 .app-screenshot .shot-body { padding: 20px; max-height: 520px; overflow-y: auto; background: transparent; }
 .shot-row { display: flex; gap: 12px; margin-bottom: 20px; }
@@ -353,14 +361,11 @@ a { color: inherit; text-decoration: none; }
 .study-alert-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 /* Só contorno; o preenchimento entra no hover. As três cores são as mesmas
    já usadas nos níveis da ementa, para a pessoa reconhecer o significado. */
-.level-choice { background: transparent; border: 1px solid currentColor; border-radius: 8px; flex: 1 1 auto; font-size: 12px; font-weight: 600; padding: 11px 10px; transition: .15s ease; }
-.level-choice.unknown { color: #c65f52; }
-.level-choice.learning { color: #a9852f; }
-.level-choice.mastered { color: #4f8f72; }
-.level-choice:hover { color: #fff; }
-.level-choice.unknown:hover { background: #c65f52; }
-.level-choice.learning:hover { background: #a9852f; }
-.level-choice.mastered:hover { background: #4f8f72; }
+.level-choice { background: transparent; border: 2px solid var(--coral); border-radius: 8px; color: var(--coral); flex: 1 1 auto; font-size: 12px; font-weight: 600; padding: 11px 10px; transition: .15s ease; }
+.level-choice:hover { background: var(--coral); color: #fff; }
+.level-choice.unknown:hover { background: var(--coral); }
+.level-choice.learning:hover { background: var(--coral); }
+.level-choice.mastered:hover { background: var(--coral); }
 /* No escuro, o contorno precisa dos tons claros; o preenchimento pede texto escuro. */
 [data-theme="dark"] .level-choice.unknown { color: #e2938a; }
 [data-theme="dark"] .level-choice.learning { color: #d5b66e; }
@@ -636,11 +641,23 @@ a { color: inherit; text-decoration: none; }
 /* Seletor de datas da view de progresso (dropdown do botão "Últimos 30 dias").
    O menu é absoluto dentro do .dashboard-heading: abrir não empurra nada ao redor. */
 [data-view-panel="progress"] .dashboard-heading { position: relative; }
-.date-dropdown { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 14px 34px rgba(39, 67, 65, .16); display: flex; flex-direction: column; gap: 2px; min-width: 170px; padding: 5px; position: absolute; left: 0; top: calc(100% + 6px); z-index: 30; opacity: 0; transform: translateY(-4px); pointer-events: none; transition: opacity .15s ease, transform .15s ease; }
+
+/* O dropdown de período (date-dropdown) é posicionado absolutamente dentro do
+   .panel-header — precisa de position:relative para ancorar corretamente. */
+.panel-header { position: relative; }
+
+/* Botão seletor de período (date-selector) — label em negrito, seta alinhada. */
+.date-selector { align-items: center; background: var(--coral); border: 1px solid var(--coral); border-radius: 8px; color: #fff; cursor: pointer; display: inline-flex; font: 600 12px "Space Grotesk"; gap: 6px; padding: 6px 12px; transition: .15s ease; justify-content: center; }
+.date-selector:hover { background: var(--coral-dark); border-color: var(--coral-dark); }
+.date-selector:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; border-radius: 8px; }
+.date-selector span:last-child { color: rgba(255,255,255,.7); font-size: 10px; line-height: 1; margin-left: 2px; }
+.date-selector:disabled { background: var(--muted); border-color: var(--muted); color: var(--ink-soft); cursor: not-allowed; }
+
+.date-dropdown { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 14px 34px rgba(39, 67, 65, .16); display: flex; flex-direction: column; gap: 2px; min-width: 170px; padding: 5px; position: absolute; right: 0; top: 100%; z-index: 30; opacity: 0; transform: translateY(-4px); pointer-events: none; transition: opacity .15s ease, transform .15s ease; }
 .date-dropdown:not(.hidden) { opacity: 1; transform: translateY(0); pointer-events: auto; }
 .date-dropdown-item { align-items: center; background: transparent; border: 0; border-radius: 7px; color: var(--ink-soft); cursor: pointer; display: flex; font-size: 12px; justify-content: space-between; padding: 9px 10px; text-align: left; white-space: nowrap; width: 100%; }
-.date-dropdown-item:hover { background: var(--canvas); color: var(--ink); }
-.date-dropdown-item.selected { color: var(--coral-dark); font-weight: 700; }
+.date-dropdown-item:hover { background: var(--coral-pale); color: var(--coral-dark); }
+.date-dropdown-item.selected { background: var(--coral); color: #fff; font-weight: 700; }
 .date-dropdown-item.selected::after { content: "✓"; font-size: 10px; }
 [data-theme="dark"] .date-dropdown { border-color: #34353d; box-shadow: 0 14px 34px rgba(0, 0, 0, .5); }
 [data-theme="dark"] .date-dropdown:not(.hidden) { opacity: 1; transform: translateY(0); }
@@ -660,3 +677,131 @@ a { color: inherit; text-decoration: none; }
 .topic-content-body figcaption span { opacity: .7; }
 [data-theme="dark"] .topic-content { border-top-color: #2c2d34; }
 [data-theme="dark"] .topic-formula { background: #24252c; color: #e6e6ea; }
+
+.metric-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+.metric-header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.metric-header > span:first-child {
+  font: 700 16px "Space Grotesk", sans-serif;
+  color: var(--ink);
+  letter-spacing: -0.3px;
+}
+
+.metric-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.metric-icon.fire { color: var(--coral); }
+.metric-icon.clock { color: var(--coral); }
+
+.metric-card > strong {
+  display: block;
+  font: 700 36px "Space Grotesk", sans-serif;
+  letter-spacing: -1.5px;
+  line-height: 1.1;
+  margin-bottom: 6px;
+}
+
+.metric-card > strong small {
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.metric-card > p {
+  color: var(--ink-soft);
+  font-size: 13px;
+  margin: 0 0 12px;
+}
+
+.metric-bar {
+  background: var(--line);
+  border-radius: 8px;
+  height: 6px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.metric-bar span {
+  background: var(--coral);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+}
+
+.mini-days {
+  display: flex;
+  gap: 4px;
+  margin: 8px 0;
+}
+
+.mini-days span {
+  flex: 1;
+  height: 6px;
+  background: var(--line);
+  border-radius: 3px;
+}
+
+.mini-days span.active {
+  background: var(--coral);
+}
+
+.week-bars {
+  display: flex;
+  gap: 4px;
+  height: 32px;
+  align-items: flex-end;
+}
+
+.week-bars span {
+  flex: 1;
+  background: var(--line);
+  border-radius: 3px 3px 0 0;
+  transition: height 0.3s ease;
+}
+
+.week-bars span.today {
+  background: var(--coral);
+}
+
+@media (max-width: 760px) {
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+  .metric-card {
+    min-height: 145px;
+    padding: 18px;
+  }
+  .metric-header > span:first-child {
+    font-size: 14px;
+  }
+  .metric-icon {
+    font-size: 24px;
+  }
+  .metric-card > strong {
+    font-size: 30px;
+  }
+  .metric-card > strong small {
+    font-size: 15px;
+  }
+}
