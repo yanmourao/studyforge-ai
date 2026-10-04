@@ -5,7 +5,6 @@
     userId: null, times: new Map(), timedKey: null, viewedMs: 0, viewedSince: null};
   const esc = escapeHtml;
   const letters = ["A", "B", "C", "D"];
-  const icons = ["ƒ", "Aa", "♧", "⌛", "⚡", "⚗"];
   function clock(seconds) {
     const s = Math.max(0, Math.floor(seconds));
     return s >= 3600 ? `${Math.floor(s / 3600)}h ${String(Math.floor(s / 60) % 60).padStart(2, "0")}min`
@@ -75,7 +74,7 @@
     if (!report) return "";
     const seconds = live ? currentSessionSeconds() : report.seconds;
     return `<section class="panel q-report" aria-label="Resumo da sessão">
-      <div class="q-section-head"><div><span class="panel-kicker">${live ? "DESEMPENHO EM TEMPO REAL" : "RESUMO DA SESSÃO"}</span><h2>${live ? "Seu ritmo agora" : "Cada resposta conta."}</h2></div><span class="q-mode">${live ? "Em andamento" : "Concluída"}</span></div>
+      <div class="q-section-head"><div><span class="panel-kicker">${live ? "DESEMPENHO EM TEMPO REAL" : "RESUMO DA SESSÃO"}</span><h2>${live ? "Sessão em andamento" : "Resultado da sessão"}</h2></div><span class="q-mode">${live ? "Em andamento" : "Concluída"}</span></div>
       <div class="q-metrics">
         <div><span>Acertos / respondidas</span><strong>${report.correct}<small> / ${report.total}</small></strong></div>
         <div><span>Aproveitamento</span><strong>${report.percentage}<small>%</small></strong></div>
@@ -100,13 +99,13 @@
         const list = qState.bank.filter(q => q.subject === s);
         const count = list.filter(q => answerFor(q.id)).length;
         return `<button class="panel q-subject-card ${qState.subject === s ? "is-selected" : ""}" data-q-action="subject" data-subject="${esc(s)}" aria-pressed="${qState.subject === s}" ${disabled}>
-          <span class="q-subject-icon q-color-${i}">${icons[i]}</span><span class="q-subject-copy"><strong>${esc(s)}</strong><small>10 questões · ${count} respondidas${active ? " na sessão" : ""}</small></span><span aria-hidden="true">↗</span><span class="q-card-track"><span style="width:${count * 10}%"></span></span></button>`;
+          <span class="q-subject-copy"><strong>${esc(s)}</strong><small>10 questões · ${count} respondidas${active ? " na sessão" : ""}</small></span><span aria-hidden="true">↗</span><span class="q-card-track"><span style="width:${count * 10}%"></span></span></button>`;
       }).join("")}</div>
       ${qState.subject ? questionHtml(disabled) : '<div class="q-selection-hint">Selecione uma matéria acima para abrir suas questões.</div>'}
       ${reportHtml(active || qState.report, Boolean(active))}
       <section class="q-history"><div class="q-section-head"><div><span class="panel-kicker">SUAS SESSÕES</span><h2>Histórico de estudo</h2></div><span class="q-caption">Últimas 10 sessões</span></div>
       ${qState.history.length ? `<div class="q-history-list">${qState.history.map(s => `<button class="panel q-history-item" data-q-action="history" data-id="${s.id}" ${disabled}>
-        <span><strong>${esc(new Date(s.startedAt).toLocaleString("pt-BR", {dateStyle: "short", timeStyle: "short"}))}</strong><small>${esc(s.subjects.map(g => g.subject).join(", ") || "Sem respostas")}</small></span><span>${s.correct}/${s.total} acertos</span><strong>${s.percentage}%</strong><span>${clock(s.seconds)}</span><span aria-hidden="true">→</span></button>`).join("")}</div>` : '<div class="panel q-empty"><strong>Seu primeiro resumo começa aqui.</strong><p>Inicie uma sessão, resolva questões e encerre para salvar seu desempenho. Respostas avulsas ficam fora deste histórico.</p></div>'}
+        <span><strong>${esc(new Date(s.startedAt).toLocaleString("pt-BR", {dateStyle: "short", timeStyle: "short"}))}</strong><small>${esc(s.subjects.map(g => g.subject).join(", ") || "Sem respostas")}</small></span><span>${s.correct}/${s.total} acertos</span><strong>${s.percentage}%</strong><span>${clock(s.seconds)}</span><span aria-hidden="true">→</span></button>`).join("")}</div>` : '<div class="panel q-empty"><strong>Nenhuma sessão concluída.</strong><p>Inicie uma sessão, resolva questões e encerre para salvar seu desempenho. Respostas avulsas ficam fora deste histórico.</p></div>'}
       </section>`;
   }
   function questionHtml(disabled) {

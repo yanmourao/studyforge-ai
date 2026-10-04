@@ -616,9 +616,6 @@ function showScreen(screenId) {
   const screen = $(`#${screenId}`);
   if (screen) screen.classList.add("active-screen");
   window.scrollTo({ top: 0, behavior: "smooth" });
-  if (screenId === "landing-screen" || screenId === "landing-page-screen") {
-    document.documentElement.removeAttribute("data-theme");
-  }
   if (screenId === "landing-page-screen") initCarousel();
 }
 
@@ -1178,8 +1175,10 @@ function computeStreak(dailyMap) {
 function renderStreakCard(dailyMap, streak) {
   const countEl = $("#streak-count");
   if (countEl) countEl.textContent = streak.current;
+  const unitEl = $("#streak-unit");
+  if (unitEl) unitEl.textContent = streak.current === 1 ? "dia" : "dias";
   const labelEl = $("#streak-label");
-  if (labelEl) labelEl.textContent = streak.current > 0 ? "Você está no ritmo!" : "Comece sua sequência hoje.";
+  if (labelEl) labelEl.textContent = streak.current > 0 ? "sequência de estudo registrada" : "Nenhum dia consecutivo registrado";
   const bestEl = $("#streak-best");
   if (bestEl) bestEl.textContent = `Melhor: ${streak.best} ${streak.best === 1 ? "dia" : "dias"}`;
 
@@ -2113,6 +2112,8 @@ function applyTheme(theme) {
     document.documentElement.removeAttribute("data-theme");
   }
   localStorage.setItem("studyforge-theme", theme);
+  const themeColor = document.querySelector('meta[name="theme-color"]');
+  if (themeColor) themeColor.content = getComputedStyle(document.documentElement).getPropertyValue("--canvas").trim();
 }
 
 function openSettingsModal() {
@@ -2550,24 +2551,6 @@ if (weeklyChartEl) {
     const tip = $("#weekly-chart-tooltip");
     if (tip) tip.classList.add("hidden");
   });
-}
-
-// Landing page video demo
-function playVideoDemo() {
-  const placeholder = $("#video-placeholder");
-  if (!placeholder) return;
-  placeholder.innerHTML = `
-    <iframe 
-      width="100%" 
-      height="100%" 
-      src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&rel=0" 
-      title="StudyForge AI - Demo" 
-      frameborder="0" 
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-      allowfullscreen>
-</iframe>
-  `;
-  placeholder.removeAttribute("data-action");
 }
 
 async function restoreSession() {

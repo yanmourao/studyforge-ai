@@ -16,13 +16,15 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="questions.css" />
+  <link rel="stylesheet" href="dashboard.css" />
+  <link rel="stylesheet" href="theme.css" />
 </head>
 <body>
   <div class="app-background"></div>
 
   <section id="landing-screen" class="screen landing-screen active-screen">
     <header class="landing-nav shell">
-      <a class="brand" href="#">
+      <a class="brand" href="#landing-screen">
         <span class="brand-mark"><span></span><span></span><span></span></span>
         <span>studyforge<span class="brand-dot">.</span><em>ai</em></span>
       </a>
@@ -40,40 +42,29 @@
 <main>
       <section class="hero shell">
         <div class="hero-copy">
-          <div class="eyebrow"><span class="eyebrow-dot"></span> seu ritmo, seu plano, seu progresso</div>
-          <h1>Estude com um plano que <span>acompanha você.</span></h1>
-          <p class="hero-text">O StudyForge AI transforma seu objetivo em uma rotina possível — e ajusta o caminho sempre que você precisar.</p>
+          <div class="eyebrow"><span class="eyebrow-dot"></span> Plano de estudo, ementa e questões</div>
+          <h1>Organize seu estudo.<br /><span>Acompanhe o que aprendeu.</span></h1>
+          <p class="hero-text">Escolha as matérias, distribua o tempo de estudo e registre suas sessões. Use a ementa e as questões para acompanhar o que ainda precisa revisar.</p>
           <div class="hero-cta-row">
             <button class="button button-primary" data-action="start">Criar meu plano <span>↗</span></button>
-            <button class="play-button" data-action="demo"><span class="play-icon">▶</span><span>Ver como funciona</span></button>
-          </div>
-          <div class="hero-proof">
-            <div class="avatar-stack" aria-label="Estudantes usando o StudyForge">
-              <span class="avatar avatar-a" title="Rafaela">RC</span>
-              <span class="avatar avatar-b" title="Lucas">LM</span>
-              <span class="avatar avatar-c" title="João">JP</span>
-              <span class="avatar avatar-more">+12</span>
-            </div>
-            <span><strong>2.400+</strong> estudantes ativos esta semana</span>
+            <button class="play-button" data-action="demo"><span class="play-icon">▶</span><span>Conhecer recursos</span></button>
           </div>
         </div>
 
-        <div class="hero-visual" aria-label="Prévia do dashboard do StudyForge AI">
+        <div class="hero-visual" aria-label="Exemplo ilustrativo do dashboard"><span class="preview-label">Exemplo de rotina · dados ilustrativos</span>
           <div class="visual-glow"></div>
           <div class="dashboard-preview">
             <div class="preview-topbar"><span class="preview-brand"><span class="brand-mark mini"><span></span><span></span><span></span></span> studyforge<span class="brand-dot">.</span>ai</span><span class="preview-avatar">RA</span></div>
             <div class="preview-body">
-              <div class="preview-heading"><div><span class="preview-kicker">QUARTA, 15 DE MAIO</span><h3>Olá, Rafa! <span>✦</span></h3><p>Vamos construir um dia que conta?</p></div><span class="streak-pill">🔥 7 dias</span></div>
+              <div class="preview-heading"><div><span class="preview-kicker">QUARTA, 15 DE MAIO</span><h3>Olá, Rafa! </h3><p>Veja as sessões planejadas para hoje.</p></div><span class="streak-pill">7 dias</span></div>
               <div class="preview-progress"><div class="preview-progress-label"><span>Progresso de hoje</span><strong>67%</strong></div><div class="progress-track"><span style="width:67%"></span></div></div>
               <div class="preview-section-label"><span>Seu foco de hoje</span><span>ver tudo →</span></div>
               <div class="preview-task completed"><span class="task-check checked">✓</span><span class="task-time">08:00</span><span class="task-copy"><strong>Matemática</strong><small>Função quadrática · revisão</small></span><span class="task-duration">50 min</span></div>
               <div class="preview-task active"><span class="task-check"></span><span class="task-time">10:00</span><span class="task-copy"><strong>Português</strong><small>Interpretação de texto</small></span><span class="task-duration">40 min</span></div>
               <div class="preview-task"><span class="task-check"></span><span class="task-time">19:00</span><span class="task-copy"><strong>Biologia</strong><small>Ecologia · questões</small></span><span class="task-duration">30 min</span></div>
-              <div class="preview-ai-note"><span class="sparkle">✦</span><span><strong>Prioridade da semana</strong><br />Matemática vem primeiro: são os tópicos que você marcou como "não sei".</span><span class="note-arrow">→</span></div>
+              <div class="preview-ai-note"><span><strong>Prioridade da semana</strong><br />Matemática vem primeiro: são os tópicos que você marcou como "não sei".</span><span class="note-arrow">→</span></div>
             </div>
           </div>
-          <div class="floating-card floating-score"><span class="floating-icon mint-icon">↗</span><div><small>desempenho</small><strong>+24%</strong><em>este mês</em></div></div>
-          <div class="floating-card floating-ai"><span class="floating-icon coral-icon">✦</span><div><small>sua ementa</small><strong>60 tópicos</strong><em>com resumo e prioridade</em></div><span class="online-dot"></span></div>
         </div>
       </section>
 
@@ -81,16 +72,16 @@
         <div class="section-intro">
           <span class="eyebrow">TOUR PELO APP</span>
           <h2>Veja o StudyForge <span>por dentro.</span></h2>
-          <p>Navegue pelas principais telas e entenda como cada recurso funciona na prática.</p>
+          <p>Exemplos ilustrativos das telas. Os dados abaixo demonstram os recursos do aplicativo.</p>
         </div>
         <div class="bento-grid" id="bento-grid">
           <article class="bento-card bento-large dashboard-card">
             <div class="app-screenshot dashboard-shot">
               <div class="shot-header"><span class="shot-dots"><span></span><span></span><span></span></span><span class="shot-title">Dashboard — Visão Geral</span></div>
               <div class="shot-body">
-                <div class="shot-row"><div class="shot-card"><span class="shot-label">Progresso de hoje</span><div class="shot-bar"><span style="width:67%"></span></div><span class="shot-value">67%</span></div><div class="shot-card"><span class="shot-label">Sequência</span><span class="shot-value streak">🔥 7 dias</span></div><div class="shot-card"><span class="shot-label">Esta semana</span><span class="shot-value">4h 20min</span></div></div>
+                <div class="shot-row"><div class="shot-card"><span class="shot-label">Progresso de hoje</span><div class="shot-bar"><span style="width:67%"></span></div><span class="shot-value">67%</span></div><div class="shot-card"><span class="shot-label">Sequência</span><span class="shot-value streak">7 dias</span></div><div class="shot-card"><span class="shot-label">Esta semana</span><span class="shot-value">4h 20min</span></div></div>
                 <div class="shot-section"><span class="shot-section-title">Foco de hoje</span><div class="shot-tasks"><div class="shot-task done"><span class="shot-check">✓</span><span class="shot-time">08:00</span><span class="shot-info"><strong>Matemática</strong><small>Função quadrática · revisão</small></span><span class="shot-dur">50 min</span></div><div class="shot-task active"><span class="shot-check"></span><span class="shot-time">10:00</span><span class="shot-info"><strong>Português</strong><small>Interpretação de texto</small></span><span class="shot-dur">40 min</span></div><div class="shot-task"><span class="shot-check"></span><span class="shot-time">19:00</span><span class="shot-info"><strong>Biologia</strong><small>Ecologia · questões</small></span><span class="shot-dur">30 min</span></div></div></div>
-                <div class="shot-insight"><span class="shot-sparkle">✦</span><span><strong>Prioridade da semana:</strong> Matemática vem primeiro — são os tópicos que você marcou como "não sei".</span></div>
+                <div class="shot-insight"><span><strong>Prioridade da semana:</strong> Matemática vem primeiro — são os tópicos que você marcou como "não sei".</span></div>
               </div>
             </div>
             <div class="bento-overlay">
@@ -104,7 +95,7 @@
             <div class="app-screenshot plan-shot">
               <div class="shot-header"><span class="shot-dots"><span></span><span></span><span></span></span><span class="shot-title">Meu Plano — Semana</span></div>
               <div class="shot-body">
-                <div class="shot-plan-summary"><span class="shot-ai">✦</span><div><strong>Plano gerado pela sua rotina</strong><small>90 dias · 08:00–10:00 · Intermediário</small></div><span class="shot-status"><i></i> em andamento</span></div>
+                <div class="shot-plan-summary"><div><strong>Plano gerado pela sua rotina</strong><small>90 dias · 08:00–10:00 · Intermediário</small></div><span class="shot-status"><i></i> em andamento</span></div>
                 <div class="shot-week"><div class="shot-day today"><div class="shot-day-label"><strong>QUA</strong><span>15 mai</span></div><div class="shot-sessions"><div class="shot-session"><span class="shot-sess-time">08:00</span><span class="shot-sess-subj math">Matemática</span><span class="shot-sess-topic">Função quadrática</span><span class="shot-sess-dur">50 min</span></div><div class="shot-session"><span class="shot-sess-time">10:00</span><span class="shot-sess-subj portuguese">Português</span><span class="shot-sess-topic">Interpretação</span><span class="shot-sess-dur">40 min</span></div><div class="shot-session break"><span class="shot-sess-time">11:00</span><span class="shot-sess-subj">Pausa</span><span class="shot-sess-dur">60 min</span></div><div class="shot-session"><span class="shot-sess-time">19:00</span><span class="shot-sess-subj bio">Biologia</span><span class="shot-sess-topic">Ecologia</span><span class="shot-sess-dur">30 min</span></div></div></div><div class="shot-day"><div class="shot-day-label"><strong>QUI</strong><span>16 mai</span></div><div class="shot-sessions"><div class="shot-session"><span class="shot-sess-time">08:00</span><span class="shot-sess-subj math">Matemática</span><span class="shot-sess-topic">Logaritmos</span><span class="shot-sess-dur">60 min</span></div><div class="shot-session"><span class="shot-sess-time">10:00</span><span class="shot-sess-subj history">História</span><span class="shot-sess-topic">República Brasileira</span><span class="shot-sess-dur">45 min</span></div><div class="shot-session break"><span class="shot-sess-time">11:00</span><span class="shot-sess-subj">Pausa</span><span class="shot-sess-dur">60 min</span></div><div class="shot-session"><span class="shot-sess-time">19:00</span><span class="shot-sess-subj physics">Física</span><span class="shot-sess-topic">Cinemática</span><span class="shot-sess-dur">40 min</span></div></div></div><div class="shot-day"><div class="shot-day-label"><strong>SEX</strong><span>17 mai</span></div><div class="shot-sessions"><div class="shot-session"><span class="shot-sess-time">08:00</span><span class="shot-sess-subj math">Matemática</span><span class="shot-sess-topic">Geometria plana</span><span class="shot-sess-dur">70 min</span></div><div class="shot-session"><span class="shot-sess-time">10:00</span><span class="shot-sess-subj chemistry">Química</span><span class="shot-sess-topic">Ligações químicas</span><span class="shot-sess-dur">45 min</span></div><div class="shot-session break"><span class="shot-sess-time">11:00</span><span class="shot-sess-subj">Pausa</span><span class="shot-sess-dur">60 min</span></div><div class="shot-session"><span class="shot-sess-time">19:00</span><span class="shot-sess-subj portuguese">Português</span><span class="shot-sess-topic">Redação · estrutura</span><span class="shot-sess-dur">50 min</span></div></div></div>
               </div>
             </div>
@@ -146,26 +137,11 @@
             </div>
           </article>
 
-          <article class="bento-card insights-card">
-            <div class="app-screenshot insights-shot">
-              <div class="shot-header"><span class="shot-dots"><span></span><span></span><span></span></span><span class="shot-title">Insights do Tutor</span></div>
-              <div class="shot-body">
-                <div class="shot-insight-card"><span class="shot-ai-badge">✦</span><div class="shot-insight-content"><strong>Seu melhor horário é pela manhã.</strong><p>Você conclui <strong>32% mais tarefas</strong> antes do almoço. Por isso, deixei sua matéria mais desafiadora para começar o dia.</p></div></div>
-                <div class="shot-insight-list"><div class="shot-insight-item"><span class="shot-insight-icon">📈</span><div><strong>Matemática</strong> avançou 24% este mês — foco em Geometria plana agora.</div></div><div class="shot-insight-item"><span class="shot-insight-icon">⚠</span><div><strong>Biologia</strong> parada há 5 dias — Ecologia precisa de revisão.</div></div><div class="shot-insight-item"><span class="shot-insight-icon">🎯</span><div><strong>Probabilidade</strong> cai em 78% das provas ENEM — priorize esta semana.</div></div></div>
-              </div>
-            </div>
-            <div class="bento-overlay">
-              <span class="bento-badge">Insights</span>
-              <h3>Insights do Tutor</span>
-              <p>IA identifica seu melhor horário, sugere prioridades e alerta sobre tópicos negligenciados.</p>
-            </div>
-          </article>
-
           <article class="bento-card settings-card">
-            <div class="app-screenshot settings-shot theme-light">
+            <div class="app-screenshot settings-shot">
               <div class="shot-header"><span class="shot-dots"><span></span><span></span><span></span></span><span class="shot-title">Configurações</span></div>
               <div class="shot-body">
-                <div class="shot-settings"><div class="shot-setting"><div><strong>Modo escuro</strong><p>Troca as cores da interface para um tema escuro.</p></div><label class="shot-switch"><input type="checkbox"><span class="shot-switch-track"><span class="shot-switch-thumb"></span></span></label></div><div class="shot-setting"><div><strong>Assinatura</strong><p>Plano Pro ativo — renova em 15 dias. Gerencie ou cancele a qualquer momento.</p></div><button class="shot-btn">Gerenciar</button></div><div class="shot-setting"><div><strong>Perfil</strong><p>Rafaela C. · ENEM · 90 dias · 2h/dia · Intermediário</p></div><button class="shot-btn ghost">Editar</button></div><div class="shot-setting"><div><strong>Dados</strong><p>Seus dados são criptografados e nunca compartilhados.</p></div><button class="shot-btn ghost">Exportar</button></div></div>
+                <div class="shot-settings"><div class="shot-setting"><div><strong>Modo escuro</strong><p>Troca as cores da interface para um tema escuro.</p></div><label class="shot-switch"><input type="checkbox"><span class="shot-switch-track"><span class="shot-switch-thumb"></span></span></label></div><div class="shot-setting"><div><strong>Assinatura</strong><p>Gerencie sua assinatura, seu cartão e suas faturas.</p></div><span class="shot-btn">Gerenciar</span></div></div>
               </div>
             </div>
             <div class="bento-overlay">
@@ -177,111 +153,42 @@
         </div>
       </section>
 
-      <section class="video-section shell" id="video-demo">
-        <div class="section-intro">
-          <span class="eyebrow">VÍDEO DEMONSTRATIVO</span>
-          <h2>Veja o StudyForge <span>em ação.</span></h2>
-          <p>Um tour rápido pelas principais telas: do cadastro ao primeiro plano gerado.</p>
-        </div>
-        <div class="video-wrapper">
-          <div class="video-placeholder" id="video-placeholder" data-action="play-video">
-            <div class="play-button-large">
-              <svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            </div>
-            <span class="video-duration">2:34</span>
-            <div class="video-thumb">
-              <div class="video-thumb-frame">
-                <div class="video-thumb-header"><span class="video-thumb-dots"><span></span><span></span><span></span></span></div>
-                <div class="video-thumb-body"><span class="video-thumb-play">▶</span></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="features-showcase shell" id="features-showcase">
+      <section class="features-showcase shell" id="features">
         <div class="section-intro">
           <span class="eyebrow">PRINCIPAIS RECURSOS</span>
-          <h2>Tudo que você precisa para <span>estudar com direção.</span></h2>
+          <h2>Ferramentas para <span>organizar e revisar.</span></h2>
         </div>
         <div class="showcase-grid">
           <article class="showcase-card showcase-large">
-            <div class="showcase-icon coral-bg">✦</div>
+
             <h3>Plano Personalizado</h3>
-            <p>IA gera rotina semanal baseada no seu objetivo, tempo livre, nível e matérias. Reorganiza quando sua agenda muda.</p>
-            <div class="showcase-metric">
-              <span class="metric-value">3 min</span>
-              <span class="metric-label">para gerar seu plano</span>
-            </div>
+            <p>O plano distribui os tópicos da sua ementa na janela de estudo que você definiu. Você pode editar os blocos e reorganizar a rotina.</p>
           </article>
           <article class="showcase-card">
-            <div class="showcase-icon mint-bg">✓</div>
+
             <h3>Ementa Interativa</h3>
             <p>Tópicos oficiais por prova (ENEM, SAT, Vestibular...). Marque domínio, defina duração do bloco, adicione tópicos próprios.</p>
           </article>
           <article class="showcase-card">
-            <div class="showcase-icon lilac-bg">⌁</div>
+
             <h3>Progresso Visual</h3>
-            <p>Sequência de dias, horas por semana, gráfico de evolução, % da ementa dominada. O que não se mede, não se melhora.</p>
+            <p>Veja as horas registradas, os dias consecutivos de estudo e o domínio que você marcou na ementa.</p>
           </article>
           <article class="showcase-card showcase-tall">
-            <div class="showcase-icon coral-bg">🔔</div>
+
             <h3>Alertas Inteligentes</h3>
             <p>Estudou 2h+ num tópico ainda "Não sei"? O StudyForge avisa e pergunta: quer mudar para "Estudando" ou "Já domino"?</p>
-            <div class="showcase-metric">
-              <span class="metric-value">32%</span>
-              <span class="metric-label">mais tarefas pela manhã</span>
-            </div>
           </article>
           <article class="showcase-card">
-            <div class="showcase-icon mint-bg">📊</div>
-            <h3>Insights Semanais</h3>
-            <p>Seu melhor horário, matérias que mais avançam, tópicos de alta frequência na sua prova. Decisões baseadas em dados.</p>
-          </article>
-          <article class="showcase-card">
-            <div class="showcase-icon lilac-bg">⚙</div>
-            <h3>Flexível e Privado</h3>
-            <p>Modo escuro, pausa de bloco personalizada, dados criptografados, sem anúncios. Seu ritmo, suas regras.</p>
-          </article>
-        </div>
-      </section>
 
-      <section class="testimonials-section shell" id="testimonials">
-        <div class="section-intro">
-          <span class="eyebrow">O QUE DIZEM</span>
-          <h2>Estudantes que <span>encontraram seu ritmo.</span></h2>
-        </div>
-        <div class="testimonials-editorial">
-          <article class="testimonial-card testimonial-featured">
-            <div class="testimonial-stars">★★★★★</div>
-            <p>"Finalmente um plano que respeita meu horário de trabalho. A ementa do ENEM já vem pronta e eu só marco o que sei. Em 3 semanas minha sequência chegou a 15 dias."</p>
-            <div class="testimonial-author">
-              <div class="author-avatar">RC</div>
-              <div><strong>Rafaela C.</strong><small>ENEM · 90 dias</small></div>
-            </div>
-            <div class="testimonial-metric">
-              <span class="metric-value">15</span>
-              <span class="metric-label">dias de sequência</span>
-            </div>
+            <h3>Histórico de estudo</h3>
+            <p>Consulte suas sessões e compare o tempo dedicado a cada matéria no período selecionado.</p>
           </article>
-          <div class="testimonial-pair">
-            <article class="testimonial-card">
-              <div class="testimonial-stars">★★★★★</div>
-              <p>"O alerta de '2h estudadas mas ainda não sei' mudou tudo. Eu achava que tinha aprendido, mas o StudyForge me fez revisar de verdade. Nota na redação subiu 120 pontos."</p>
-              <div class="testimonial-author">
-                <div class="author-avatar">LM</div>
-                <div><strong>Lucas M.</strong><small>Vestibular · 60 dias</small></div>
-              </div>
-            </article>
-            <article class="testimonial-card">
-              <div class="testimonial-stars">★★★★★</div>
-              <p>"Uso pro concurso da Receita. O plano organiza 3h/dia entre Direito, Contabilidade e Legislação. O insight semanal mostra onde eu tô fraco antes da prova."</p>
-              <div class="testimonial-author">
-                <div class="author-avatar">JP</div>
-                <div><strong>João P.</strong><small>Concurso · 120 dias</small></div>
-              </div>
-            </article>
-          </div>
+          <article class="showcase-card">
+
+            <h3>Flexível e Privado</h3>
+            <p>Escolha o tema claro ou escuro, ajuste a duração dos blocos e defina as pausas do seu plano.</p>
+          </article>
         </div>
       </section>
 
@@ -289,15 +196,15 @@
         <div class="cta-final-split">
           <div class="cta-final-content">
             <span class="eyebrow">PRONTO PARA COMEÇAR?</span>
-            <h2>Seu primeiro plano <span>leva 2 minutos.</span></h2>
+            <h2>Monte seu <span>plano de estudo.</span></h2>
             <p>Cadastre-se, escolha seu objetivo e veja a rotina montada na hora. 5 dias grátis, cancele quando quiser.</p>
             <div class="cta-final-features">
-              <div class="cta-feature"><span class="cta-feature-icon">✦</span><span>Plano semanal personalizado</span></div>
-              <div class="cta-feature"><span class="cta-feature-icon">✓</span><span>Ementa oficial do ENEM</span></div>
-              <div class="cta-feature"><span class="cta-feature-icon">🔔</span><span>Alertas de progresso</span></div>
-              <div class="cta-feature"><span class="cta-feature-icon">📊</span><span>Insights semanais</span></div>
+              <div class="cta-feature"><span>Plano semanal personalizado</span></div>
+              <div class="cta-feature"><span>Ementa oficial do ENEM</span></div>
+              <div class="cta-feature"><span>Alertas de progresso</span></div>
+              <div class="cta-feature"><span>Histórico de estudo</span></div>
             </div>
-            <button class="button button-primary" data-action="start">Criar minha conta <span>✦</span></button>
+            <button class="button button-primary" data-action="start">Criar minha conta </button>
           </div>
           <div class="cta-final-visual">
             <div class="cta-preview-card">
@@ -312,7 +219,7 @@
                 <div class="cta-step"><span class="cta-step-num">04</span><span>Gerando rota...</span></div>
               </div>
               <div class="cta-preview-result">
-                <span class="cta-result-icon">✦</span>
+
                 <strong>Pronto! Seu plano está pronto.</strong>
               </div>
             </div>
@@ -325,41 +232,32 @@
         <div class="logo-words"><span>ENEM</span><span>SAT</span><span>VESTIBULAR</span><span>CONCURSOS</span><span>FACULDADE</span></div>
       </section>
 
-      <section class="features-section shell" id="features">
-        <div class="section-intro"><span class="eyebrow">POR QUE STUDYFORGE?</span><h2>Menos tempo organizando.<br /><span>Mais tempo aprendendo.</span></h2><p>Uma inteligência que entende seu objetivo, respeita seu tempo e ajuda você a continuar.</p></div>
-        <div class="feature-grid">
-          <article class="feature-card feature-large"><div class="feature-icon coral-bg">✦</div><span class="feature-number">01</span><h3>Plano que faz sentido</h3><p>Conte seu objetivo, seu tempo e seu nível. A IA monta uma rotina realista, sem promessas impossíveis.</p><div class="mini-week"><span class="week-line active-line"></span><span class="week-line"></span><span class="week-line"></span><span class="week-line"></span><span class="week-line active-line"></span></div></article>
-          <article class="feature-card"><div class="feature-icon mint-bg">✓</div><span class="feature-number">02</span><h3>Progresso visível</h3><p>Pequenas vitórias todos os dias. Veja o que avançou e onde focar agora.</p><div class="mini-ring"><span>68<small>%</small></span></div></article>
-          <article class="feature-card"><div class="feature-icon lilac-bg">⌁</div><span class="feature-number">03</span><h3>Ementa que guia o plano</h3><p>Marque o que já sabe. O plano prioriza o que falta e destaca o que mais cai na prova.</p><div class="mini-chat"><span>Geometria plana 🔥 cai muito</span><b>✦</b></div></article>
-        </div>
-      </section>
-
-      <section class="quote-section shell" id="pricing"><div class="quote-mark">“</div><blockquote>Estudar não precisa ser uma batalha<br />contra o relógio.</blockquote><span>— a ideia por trás do StudyForge AI</span></section>
+      <section class="subscription-section shell" id="pricing"><div><span class="eyebrow">ASSINATURA</span><h2>Acesso ao plano, à ementa e às questões</h2><p>O dashboard exige uma assinatura. Confira o valor e as condições antes de confirmar o pagamento.</p></div><button class="button button-primary" data-action="start">Criar conta</button></section>
     </main>
-    <footer class="landing-footer shell"><span>studyforge.ai</span><span>Construído para futuros possíveis.</span><span>© 2025 StudyForge</span></footer>
+    <footer class="landing-footer shell"><span>studyforge.ai</span><span>Planejamento e prática de estudos.</span><span>StudyForge</span></footer>
   </section>
 
   <section id="onboarding-screen" class="screen onboarding-screen">
-    <header class="onboarding-nav shell"><button class="back-link" data-action="back-landing">← <span>Voltar para início</span></button><a class="brand" href="#"><span class="brand-mark"><span></span><span></span><span></span></span><span>studyforge<span class="brand-dot">.</span><em>ai</em></span></a><span class="save-label">Seus dados ficam seguros <span>⌁</span></span></header>
+    <header class="onboarding-nav shell"><button class="back-link" data-action="back-landing">← <span>Voltar para início</span></button><a class="brand" href="#landing-screen"><span class="brand-mark"><span></span><span></span><span></span></span><span>studyforge<span class="brand-dot">.</span><em>ai</em></span></a><span class="save-label">Seus dados ficam seguros <span>⌁</span></span></header>
     <main class="onboarding-main shell">
       <div class="onboarding-progress"><span class="progress-step active"><b>01</b><span>Sobre você</span></span><i></i><span class="progress-step"><b>02</b><span>Seu objetivo</span></span><i></i><span class="progress-step"><b>03</b><span>Seu ritmo</span></span></div>
       <div class="onboarding-layout">
-        <aside class="onboarding-aside"><div class="aside-orb"></div><span class="eyebrow">SEU PLANO COMEÇA AQUI</span><h2>Vamos criar uma rotina que caiba na sua <span>vida.</span></h2><p>Leva menos de 2 minutos. Depois, a gente cuida do resto junto.</p><div class="aside-note"><span>✦</span><p>“A consistência vem quando o plano encontra a realidade.”</p></div></aside>
+        <aside class="onboarding-aside"><div class="aside-orb"></div><span class="eyebrow">SEU PLANO COMEÇA AQUI</span><h2>Vamos criar uma rotina que caiba na sua <span>vida.</span></h2><p>Leva menos de 2 minutos. Depois, a gente cuida do resto junto.</p></aside>
         <div class="form-card">
           <div class="form-step active" data-step="1"><span class="form-kicker">PRIMEIRO, O BÁSICO</span><h1>Quem está estudando?</h1><p>Assim personalizamos cada detalhe do seu plano.</p><label class="input-label">Como podemos te chamar?<input id="user-name" type="text" placeholder="Seu nome" /></label><label class="input-label">Seu e-mail<input id="user-email" type="email" placeholder="voce@email.com" /></label><label class="input-label">Crie uma senha<span class="password-field"><input id="user-password" type="password" placeholder="Mínimo 6 caracteres" /><button type="button" class="password-toggle" data-action="toggle-password" aria-label="Mostrar senha"></button></span></label><label class="input-label">Qual sua faixa etária?<select id="user-age"><option>Até 17 anos</option><option selected>18 a 24 anos</option><option>25 a 34 anos</option><option>35 anos ou mais</option></select></label><div class="form-actions"><button class="button button-primary full-button" data-action="next-step">Continuar <span>→</span></button></div><p class="form-switch">Já tem uma conta? <button type="button" class="link-button" data-action="goto-login">Entrar</button></p></div>
           <div class="form-step" data-step="2"><span class="form-kicker">AGORA, O DESTINO</span><h1>Qual seu objetivo?</h1><p>Defina para onde você quer chegar.</p><input type="hidden" id="exam-objective" value="ENEM" /><label class="input-label">Em quantos dias é sua prova?<div class="input-with-suffix"><input id="exam-days" type="number" value="90" min="1" max="999" /><span>dias</span></div></label><div class="form-actions split-actions"><button class="button button-ghost" data-action="prev-step">Voltar</button><button class="button button-primary" data-action="next-step">Continuar <span>→</span></button></div></div>
-          <div class="form-step" data-step="3"><span class="form-kicker">POR ÚLTIMO, SEU RITMO</span><h1>Como você aprende melhor?</h1><p>Vamos ajustar o plano para a sua energia — não o contrário.</p><div class="two-fields"><label class="input-label">Tempo por dia<select id="daily-hours"><option value="1">1 hora</option><option value="2" selected>2 horas</option><option value="3">3 horas</option><option value="4">4 horas ou mais</option></select></label><label class="input-label">Seu nível<select id="level"><option>Iniciante</option><option selected>Intermediário</option><option>Avançado</option></select></label></div><div class="input-label">Quais matérias entram no plano?<div class="subject-grid"><button class="subject selected" data-subject="Matemática"><span class="subject-check">✓</span><span class="subject-color math-color"></span>Matemática</button><button class="subject selected" data-subject="Português"><span class="subject-check">✓</span><span class="subject-color portuguese-color"></span>Português</button><button class="subject selected" data-subject="Biologia"><span class="subject-check">✓</span><span class="subject-color bio-color"></span>Biologia</button><button class="subject" data-subject="História"><span class="subject-check">✓</span><span class="subject-color history-color"></span>História</button><button class="subject" data-subject="Física"><span class="subject-check">✓</span><span class="subject-color physics-color"></span>Física</button><button class="subject" data-subject="Química"><span class="subject-check">✓</span><span class="subject-color chemistry-color"></span>Química</button></div></div><div class="form-actions split-actions"><button class="button button-ghost" data-action="prev-step">Voltar</button><button class="button button-primary" data-action="generate-plan">Gerar meu plano <span>✦</span></button></div></div>
-          <div class="generating-state" id="generating-state"><div class="generating-orbit"><span></span><span></span><span></span><b>✦</b></div><span class="form-kicker">SUA IA ESTÁ TRABALHANDO</span><h1>Montando um plano<br /><span>com a sua cara.</span></h1><p>Estamos cruzando seu objetivo, seu tempo e seus melhores horários.</p><div class="loading-track"><span></span></div><small>Isso leva só alguns segundos</small></div>
+          <div class="form-step" data-step="3"><span class="form-kicker">POR ÚLTIMO, SEU RITMO</span><h1>Como você aprende melhor?</h1><p>Defina seu tempo disponível, seu nível e as matérias do plano.</p><div class="two-fields"><label class="input-label">Tempo por dia<select id="daily-hours"><option value="1">1 hora</option><option value="2" selected>2 horas</option><option value="3">3 horas</option><option value="4">4 horas ou mais</option></select></label><label class="input-label">Seu nível<select id="level"><option>Iniciante</option><option selected>Intermediário</option><option>Avançado</option></select></label></div><div class="input-label">Quais matérias entram no plano?<div class="subject-grid"><button class="subject selected" data-subject="Matemática"><span class="subject-check">✓</span><span class="subject-color math-color"></span>Matemática</button><button class="subject selected" data-subject="Português"><span class="subject-check">✓</span><span class="subject-color portuguese-color"></span>Português</button><button class="subject selected" data-subject="Biologia"><span class="subject-check">✓</span><span class="subject-color bio-color"></span>Biologia</button><button class="subject" data-subject="História"><span class="subject-check">✓</span><span class="subject-color history-color"></span>História</button><button class="subject" data-subject="Física"><span class="subject-check">✓</span><span class="subject-color physics-color"></span>Física</button><button class="subject" data-subject="Química"><span class="subject-check">✓</span><span class="subject-color chemistry-color"></span>Química</button></div></div><div class="form-actions split-actions"><button class="button button-ghost" data-action="prev-step">Voltar</button><button class="button button-primary" data-action="generate-plan">Gerar meu plano </button></div></div>
+          <div class="generating-state" id="generating-state"><div class="generating-orbit"><span></span><span></span><span></span><b aria-hidden="true">…</b></div><span class="form-kicker">ORGANIZANDO SEU PLANO</span><h1>Montando seu<br /><span>plano de estudo.</span></h1><p>Distribuindo os tópicos entre as matérias e os horários escolhidos.</p><div class="loading-track"><span></span></div><small>Isso leva só alguns segundos</small></div>
         </div>
       </div>
     </main>
   </section>
 
   <section id="login-screen" class="screen login-screen">
-    <header class="onboarding-nav shell"><button class="back-link" data-action="back-landing">← <span>Voltar para início</span></button><a class="brand" href="#"><span class="brand-mark"><span></span><span></span><span></span></span><span>studyforge<span class="brand-dot">.</span><em>ai</em></span></a><span class="save-label">Seus dados ficam seguros <span>⌁</span></span></header>
+    <header class="onboarding-nav shell"><button class="back-link" data-action="back-landing">← <span>Voltar para início</span></button><a class="brand" href="#landing-screen"><span class="brand-mark"><span></span><span></span><span></span></span><span>studyforge<span class="brand-dot">.</span><em>ai</em></span></a><span class="save-label">Seus dados ficam seguros <span>⌁</span></span></header>
     <main class="onboarding-main shell">
       <div class="onboarding-layout login-layout">
-        <aside class="onboarding-aside"><div class="aside-orb"></div><span class="eyebrow">QUE BOM TE VER DE NOVO</span><h2>Continue de onde <span>parou.</span></h2><p>Seu plano e seu progresso continuam esperando por você.</p><div class="aside-note"><span>✦</span><p>“A consistência vem quando o plano encontra a realidade.”</p></div></aside>
+        <aside class="onboarding-aside"><div class="aside-orb"></div><span class="eyebrow">QUE BOM TE VER DE NOVO</span><h2>Continue de onde <span>parou.</span></h2><p>Seu plano e seu progresso continuam esperando por você.</p></aside>
         <div class="form-card login-card">
           <form class="form-step active" id="login-form">
             <span class="form-kicker">BEM-VINDO DE VOLTA</span>
@@ -394,19 +292,19 @@
   </section>
 
   <section id="paywall-screen" class="screen onboarding-screen">
-    <header class="onboarding-nav shell"><button class="back-link" data-action="back-landing">← <span>Voltar para início</span></button><a class="brand" href="#"><span class="brand-mark"><span></span><span></span><span></span></span><span>studyforge<span class="brand-dot">.</span><em>ai</em></span></a><span class="save-label">Pagamento seguro via Stripe <span>⌁</span></span></header>
+    <header class="onboarding-nav shell"><button class="back-link" data-action="back-landing">← <span>Voltar para início</span></button><a class="brand" href="#landing-screen"><span class="brand-mark"><span></span><span></span><span></span></span><span>studyforge<span class="brand-dot">.</span><em>ai</em></span></a><span class="save-label">Pagamento seguro via Stripe <span>⌁</span></span></header>
     <main class="onboarding-main shell">
       <div class="onboarding-layout login-layout">
-        <aside class="onboarding-aside"><div class="aside-orb"></div><span class="eyebrow">SEU PLANO ESTÁ PRONTO</span><h2>Falta um passo para <span>começar.</span></h2><p>O StudyForge organiza sua rotina inteira, acompanha sua ementa e ajusta o caminho toda semana.</p><div class="aside-note"><span>✦</span><p>“Um plano que você consegue seguir vale mais do que um plano perfeito.”</p></div></aside>
+        <aside class="onboarding-aside"><div class="aside-orb"></div><span class="eyebrow">SEU PLANO ESTÁ PRONTO</span><h2>Falta um passo para <span>começar.</span></h2><p>O StudyForge organiza sua rotina inteira, acompanha sua ementa e ajusta o caminho toda semana.</p></aside>
         <div class="form-card login-card">
           <div class="form-step active">
             <span class="form-kicker">ASSINATURA</span>
             <h1>Ative seu <span>acesso.</span></h1>
             <p>Sua conta está criada. Para abrir seu painel, ative a assinatura — os <strong>5 primeiros dias são grátis</strong> e você pode cancelar a qualquer momento, direto nas Configurações, antes de qualquer cobrança.</p>
             <p class="paywall-price" id="paywall-price"></p>
-            <p class="paywall-perk">✦ Plano semanal montado a partir da sua ementa</p>
-            <p class="paywall-perk">✦ Acompanhamento de progresso e histórico de sessões</p>
-            <p class="paywall-perk">✦ Destaque dos tópicos que mais caem na sua prova</p>
+            <p class="paywall-perk">Plano semanal montado a partir da sua ementa</p>
+            <p class="paywall-perk">Acompanhamento de progresso e histórico de sessões</p>
+            <p class="paywall-perk">Destaque dos tópicos que mais caem na sua prova</p>
             <div class="form-actions"><button class="button button-primary full-button" data-action="upgrade">Começar 5 dias grátis <span>→</span></button></div>
             <p class="form-switch">Já assinou e ainda aparece esta tela? <button type="button" class="link-button" data-action="refresh-plan">Verificar novamente</button></p>
             <p class="form-switch">Quer usar outra conta? <button type="button" class="link-button" data-action="logout">Sair</button></p>
@@ -418,43 +316,44 @@
 
   <section id="dashboard-screen" class="screen dashboard-screen">
     <aside class="sidebar">
-      <a class="brand sidebar-brand" href="#"><span class="brand-mark"><span></span><span></span><span></span></span><span>studyforge<span class="brand-dot">.</span><em>ai</em></span></a>
+      <a class="brand sidebar-brand" href="#dashboard-screen" data-view-target="overview"><span class="brand-mark"><span></span><span></span><span></span></span><span>studyforge<span class="brand-dot">.</span><em>ai</em></span></a>
       <div class="sidebar-label">SEU ESPAÇO</div>
       <nav class="side-nav"><button class="side-nav-item active" data-view="overview"><span class="nav-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span>Visão geral</button><button class="side-nav-item" data-view="plan"><span class="nav-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>Meu plano</button><button class="side-nav-item" data-view="syllabus"><span class="nav-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15z"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/></svg></span>Minha ementa</button><button class="side-nav-item" data-view="questions"><span class="nav-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="m8 9 1 1 2-2M14 9h3m-9 6 1 1 2-2m3 1h3"/></svg></span>Questões</button><button class="side-nav-item" data-view="progress"><span class="nav-icon"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></span>Meu progresso</button></nav>
       <div class="sidebar-bottom"><div class="sidebar-utility"><button class="side-nav-item" data-action="open-settings"><span class="nav-icon">⚙</span>Configurações</button><button class="side-nav-item" data-action="logout"><span class="nav-icon">⏻</span>Sair</button></div><button class="profile-mini" data-action="open-settings"><span class="profile-avatar" id="sidebar-avatar">—</span><span><strong id="sidebar-name">Estudante</strong><small id="sidebar-plan-label">Plano gratuito</small></span><span class="profile-more">•••</span></button></div>
     </aside>
 
     <main class="dashboard-content">
-      <header class="dashboard-topbar"><button class="mobile-menu" data-action="toggle-sidebar">☰</button><div class="breadcrumb"><span>Meu espaço</span><b>/</b><strong id="breadcrumb-current">Visão geral</strong></div><div class="topbar-actions"><button class="icon-button" aria-label="Notificações">♢<span class="notification-dot"></span></button><button class="topbar-avatar" id="topbar-avatar">—</button></div></header>
+      <header class="dashboard-topbar"><button class="mobile-menu" data-action="toggle-sidebar" aria-label="Abrir ou fechar menu">☰</button><div class="breadcrumb"><span>Meu espaço</span><b>/</b><strong id="breadcrumb-current">Visão geral</strong></div><div class="topbar-actions"><button class="topbar-avatar" id="topbar-avatar" data-action="open-settings" aria-label="Abrir configurações">—</button></div></header>
       <div class="dashboard-scroll">
         <section class="dashboard-view active-view" data-view-panel="overview">
-          <div class="dashboard-heading"><div><span class="date-kicker" id="current-date">HOJE</span><h1>Bom dia, <span id="dashboard-name">Estudante</span> <span class="wave">✦</span></h1><p>Um passo de cada vez. Hoje já é uma boa oportunidade.</p></div></div>
-          <div class="metric-grid"><article class="metric-card metric-focus"><div class="metric-header"><span>FOCO DE HOJE</span><span class="metric-icon">◔</span></div><strong id="today-progress">0<small>/0</small></strong><p>sessões concluídas</p><div class="metric-bar"><span id="today-bar" style="width:0%"></span></div><em id="today-percent">Nenhuma sessão hoje</em></article><article class="metric-card"><div class="metric-header"><span>SEQUÊNCIA</span><span class="metric-icon fire">🔥</span></div><strong><span id="streak-count">0</span><small>dias</small></strong><p id="streak-label">Comece sua sequência hoje.</p><div class="mini-days" id="mini-days"></div><em id="streak-best">Melhor: 0 dias</em></article><article class="metric-card"><div class="metric-header"><span>TEMPO DE ESTUDO</span><span class="metric-icon clock">⏱</span></div><strong id="week-hours">0h<small>0m</small></strong><p>nesta semana</p><div class="week-bars" id="week-bars"></div><em id="week-change">Comece a registrar suas sessões</em></article></div>
-          <div class="main-grid"><section class="panel week-panel chart-panel"><div class="panel-header"><div><span class="panel-kicker">RITMO SEMANAL</span><h2>Tempo de estudo por matéria</h2></div><button class="date-selector" id="weekly-chart-range-button" data-action="toggle-weekly-chart-range" aria-haspopup="true" aria-expanded="false"><span id="weekly-chart-range-label">Semana</span><span>⌄</span></button><div class="date-dropdown hidden" id="weekly-chart-range-menu"><button class="date-dropdown-item" data-action="select-weekly-chart-range" data-range="week"><span>Semana</span></button><button class="date-dropdown-item" data-action="select-weekly-chart-range" data-range="month"><span>Mês</span></button><button class="date-dropdown-item" data-action="select-weekly-chart-range" data-range="semester"><span>Semestre</span></button></div></div><div class="chart-legend" id="weekly-chart-legend"></div><div class="weekly-chart"><div class="chart-y" id="chart-y-axis"><span>1h</span><span>0.5h</span><span>0h</span></div><div class="chart-area"><div class="chart-grid-line one"></div><div class="chart-grid-line two"></div><div class="chart-grid-line three"></div><div class="line-chart" id="weekly-line-chart"></div><div class="chart-x" id="weekly-chart-labels"></div></div></div></section><aside class="right-column"><section class="panel ai-insight"><div class="insight-top"><span class="ai-badge">✦</span><span class="panel-kicker">INSIGHT DO TUTOR</span><span class="insight-more">•••</span></div><h3>Seu melhor horário é pela manhã.</h3><p>Você conclui <strong>32% mais tarefas</strong> antes do almoço. Por isso, deixei sua matéria mais desafiadora para começar o dia.</p><button class="insight-link" data-view-target="plan">Ver meu plano <span>→</span></button></section></aside></div>
+          <div class="dashboard-heading overview-heading"><div><span class="date-kicker" id="current-date">HOJE</span><h1>Olá, <span id="dashboard-name">Estudante</span></h1><p>Confira suas sessões e o tempo registrado nesta semana.</p></div><button class="button button-primary" data-action="open-log-session"><span aria-hidden="true">＋</span> Registrar estudo</button></div>
+          <div class="metric-grid"><article class="metric-card metric-focus"><div class="metric-header"><span>FOCO DE HOJE</span><span class="metric-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg></span></div><strong id="today-progress">0<small>/0</small></strong><p>sessões concluídas</p><div class="metric-bar"><span id="today-bar" style="width:0%"></span></div><em id="today-percent">Nenhuma sessão hoje</em></article><article class="metric-card"><div class="metric-header"><span>SEQUÊNCIA</span><span class="metric-icon fire"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 11h18m-11 5 2 2 4-4"/></svg></span></div><strong><span id="streak-count">0</span><small id="streak-unit">dias</small></strong><p id="streak-label">Comece sua sequência hoje.</p><div class="mini-days" id="mini-days"></div><em id="streak-best">Melhor: 0 dias</em></article><article class="metric-card"><div class="metric-header"><span>TEMPO DE ESTUDO</span><span class="metric-icon clock"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span></div><strong id="week-hours">0h<small>0m</small></strong><p>nesta semana</p><div class="week-bars" id="week-bars"></div><em id="week-change">Comece a registrar suas sessões</em></article></div>
+          <div class="main-grid"><section class="panel week-panel chart-panel"><div class="panel-header"><div><span class="panel-kicker">RITMO SEMANAL</span><h2>Seu tempo de estudo</h2></div><button class="date-selector" id="weekly-chart-range-button" data-action="toggle-weekly-chart-range" aria-haspopup="true" aria-expanded="false"><span id="weekly-chart-range-label">Semana</span><span>⌄</span></button><div class="date-dropdown hidden" id="weekly-chart-range-menu"><button class="date-dropdown-item" data-action="select-weekly-chart-range" data-range="week"><span>Semana</span></button><button class="date-dropdown-item" data-action="select-weekly-chart-range" data-range="month"><span>Mês</span></button><button class="date-dropdown-item" data-action="select-weekly-chart-range" data-range="semester"><span>Semestre</span></button></div></div><div class="chart-legend" id="weekly-chart-legend"></div><div class="weekly-chart"><div class="chart-y" id="chart-y-axis"><span>1h</span><span>0.5h</span><span>0h</span></div><div class="chart-area"><div class="chart-grid-line one"></div><div class="chart-grid-line two"></div><div class="chart-grid-line three"></div><div class="line-chart" id="weekly-line-chart"></div><div class="chart-x" id="weekly-chart-labels"></div></div></div></section><aside class="right-column"><section class="panel study-next"><span class="panel-kicker">PLANO DE ESTUDO</span><h2>O que estudar hoje</h2><p>Os tópicos que você ainda não domina vêm primeiro. Consulte o plano e escolha por onde começar.</p><button class="button button-primary" data-view-target="plan">Ver meu plano <span aria-hidden="true">→</span></button></section></aside></div>
+          <div class="dashboard-shortcuts"><button class="panel dashboard-shortcut" data-view-target="questions"><span class="shortcut-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="m8 9 1 1 2-2M14 9h3m-9 6 1 1 2-2m3 1h3"/></svg></span><span><strong>Coloque em prática</strong><small>Questões com correção e explicação.</small></span><span class="shortcut-arrow" aria-hidden="true">↗</span></button><button class="panel dashboard-shortcut" data-view-target="progress"><span class="shortcut-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M7 16v-4m5 4V8m5 8V4"/></svg></span><span><strong>Acompanhe sua evolução</strong><small>Seu histórico e tempo por matéria.</small></span><span class="shortcut-arrow" aria-hidden="true">↗</span></button></div>
         </section>
 
-        <section class="dashboard-view" data-view-panel="plan"><div class="dashboard-heading"><div><span class="date-kicker">SEU PLANO PERSONALIZADO</span><h1>Três dias com <span>intenção.</span></h1><p>Seu caminho até o <span id="plan-objective">ENEM</span>, organizado em pequenos passos.</p></div><button class="button button-primary button-small" data-action="regenerate">↻ Reorganizar plano</button></div><div class="plan-summary panel"><div><span class="ai-badge">✦</span><div><strong>Plano gerado pela sua rotina</strong><p><span id="plan-days">90</span> dias · <span id="plan-hours">08:00 às 10:00</span> · nível <span id="plan-level">intermediário</span></p></div></div><span class="plan-status"><i></i> em andamento</span></div><p class="plan-note" id="plan-note"></p><div class="week-list" id="week-list"></div></section>
+        <section class="dashboard-view" data-view-panel="plan"><div class="dashboard-heading"><div><span class="date-kicker">SEU PLANO PERSONALIZADO</span><h1>Seu plano de <span>estudo.</span></h1><p>Blocos de estudo para o <span id="plan-objective">ENEM</span>, organizados pela sua disponibilidade.</p></div><button class="button button-primary button-small" data-action="regenerate">↻ Reorganizar plano</button></div><div class="plan-summary panel"><div><div><strong>Plano gerado pela sua rotina</strong><p><span id="plan-days">90</span> dias · <span id="plan-hours">08:00 às 10:00</span> · nível <span id="plan-level">intermediário</span></p></div></div><span class="plan-status"><i></i> em andamento</span></div><p class="plan-note" id="plan-note"></p><div class="week-list" id="week-list"></div></section>
 
-        <section class="dashboard-view" data-view-panel="syllabus"><div class="dashboard-heading"><div><span class="date-kicker">O QUE CAI NA PROVA</span><h1>Quanto você já <span>aprendeu?</span></h1><p>Marque cada tópico do conteúdo da prova. A gente calcula o quanto da ementa você já domina.</p></div><button class="date-selector" id="syllabus-objective-tag"><span>ENEM</span></button></div><div class="syllabus-stats"><article class="panel syllabus-stat stat-mastered"><span class="panel-kicker">JÁ SEI</span><strong id="syllabus-mastered-pct">—<span>%</span></strong><p id="syllabus-mastered-count">— de — tópicos</p><div class="syllabus-summary-bar"><span id="syllabus-mastered-bar" style="width:0%"></span></div></article><article class="panel syllabus-stat stat-learning"><span class="panel-kicker">ESTUDANDO</span><strong id="syllabus-learning-pct">—<span>%</span></strong><p id="syllabus-learning-count">— de — tópicos</p><div class="syllabus-summary-bar"><span id="syllabus-learning-bar" style="width:0%"></span></div></article><article class="panel syllabus-stat stat-unknown"><span class="panel-kicker">NÃO SEI</span><strong id="syllabus-unknown-pct">—<span>%</span></strong><p id="syllabus-unknown-count">— de — tópicos</p><div class="syllabus-summary-bar"><span id="syllabus-unknown-bar" style="width:0%"></span></div></article></div><div class="panel syllabus-hint-card"><span class="ai-badge">✦</span><h3 id="syllabus-hint-title">Comece pelo que ainda não viu.</h3><p id="syllabus-hint-text">Preencha a ementa de cada matéria para o StudyForge priorizar os tópicos que faltam no seu plano.</p></div><div class="syllabus-subject-list" id="syllabus-subject-list"></div></section>
+        <section class="dashboard-view" data-view-panel="syllabus"><div class="dashboard-heading"><div><span class="date-kicker">O QUE CAI NA PROVA</span><h1>Sua <span>ementa.</span></h1><p>Marque cada tópico do conteúdo da prova. A gente calcula o quanto da ementa você já domina.</p></div><button class="date-selector" id="syllabus-objective-tag"><span>ENEM</span></button></div><div class="syllabus-stats"><article class="panel syllabus-stat stat-mastered"><span class="panel-kicker">JÁ SEI</span><strong id="syllabus-mastered-pct">—<span>%</span></strong><p id="syllabus-mastered-count">— de — tópicos</p><div class="syllabus-summary-bar"><span id="syllabus-mastered-bar" style="width:0%"></span></div></article><article class="panel syllabus-stat stat-learning"><span class="panel-kicker">ESTUDANDO</span><strong id="syllabus-learning-pct">—<span>%</span></strong><p id="syllabus-learning-count">— de — tópicos</p><div class="syllabus-summary-bar"><span id="syllabus-learning-bar" style="width:0%"></span></div></article><article class="panel syllabus-stat stat-unknown"><span class="panel-kicker">NÃO SEI</span><strong id="syllabus-unknown-pct">—<span>%</span></strong><p id="syllabus-unknown-count">— de — tópicos</p><div class="syllabus-summary-bar"><span id="syllabus-unknown-bar" style="width:0%"></span></div></article></div><div class="panel syllabus-hint-card"><h3 id="syllabus-hint-title">Comece pelo que ainda não viu.</h3><p id="syllabus-hint-text">Preencha a ementa de cada matéria para o StudyForge priorizar os tópicos que faltam no seu plano.</p></div><div class="syllabus-subject-list" id="syllabus-subject-list"></div></section>
 
 
 
         <section class="dashboard-view" data-view-panel="questions">
-          <div class="dashboard-heading"><div><span class="date-kicker">PRATIQUE NO SEU RITMO</span><h1>Uma questão de cada <span>vez.</span></h1><p>Escolha uma matéria para praticar ou inicie uma sessão para acompanhar seu desempenho.</p></div></div>
+          <div class="dashboard-heading"><div><span class="date-kicker">PRATIQUE NO SEU RITMO</span><h1>Banco de <span>questões.</span></h1><p>Escolha uma matéria para praticar ou inicie uma sessão para acompanhar seu desempenho.</p></div></div>
           <div id="questions-root" aria-live="polite"><div class="panel q-empty">Carregando questões…</div></div>
         </section>
-<section class="dashboard-view" data-view-panel="progress"><div class="dashboard-heading"><div><span class="date-kicker">SEU DESENVOLVIMENTO</span><h1>O progresso aparece <span>no caminho.</span></h1><p>Consistência não é fazer tudo. É continuar voltando.</p></div><button class="date-selector" id="progress-range-button" data-action="toggle-date-range" aria-haspopup="true" aria-expanded="false"><span id="progress-range-label">Últimos 30 dias</span><span>⌄</span></button><div class="date-dropdown hidden" id="progress-range-menu"><button class="date-dropdown-item" data-action="select-date-range" data-range="today"><span>Hoje</span></button><button class="date-dropdown-item" data-action="select-date-range" data-range="yesterday"><span>Ontem</span></button><button class="date-dropdown-item" data-action="select-date-range" data-range="7d"><span>Últimos 7 dias</span></button><button class="date-dropdown-item selected" data-action="select-date-range" data-range="30d"><span>Últimos 30 dias</span></button><button class="date-dropdown-item" data-action="select-date-range" data-range="2m"><span>Último bimestre</span></button><button class="date-dropdown-item" data-action="select-date-range" data-range="6m"><span>Último semestre</span></button></div></div><section class="panel today-check-panel"><div class="panel-header"><div><span class="panel-kicker">JÁ ESTUDOU HOJE?</span><h2>Confirme o que você fez</h2></div><div class="today-check-head-right"><small id="today-check-summary"></small><button class="button button-outline button-small" data-action="open-log-session">+ Estudo extra</button></div></div><div id="today-check-list"></div></section><div class="progress-overview"><div class="panel big-progress-card"><span class="panel-kicker">HORAS ESTUDADAS</span><strong id="big-progress-hours">0<span>h</span> 0<span>min</span></strong><p id="progress-hours-note">nos últimos 30 dias</p><div class="large-chart" id="large-chart"></div></div><div class="panel subject-progress-card"><span class="panel-kicker">DOMÍNIO POR MATÉRIA</span><div id="subject-progress-list"></div><button class="insight-link" data-view-target="syllabus">Ver minha ementa <span>→</span></button></div></div><div class="panel subject-hours-card"><span class="panel-kicker">HORAS POR MATÉRIA</span><div id="subject-hours-list"></div></div><div class="panel achievement-panel"><div><span class="achievement-icon">♨</span><div><span class="panel-kicker">CONQUISTA RECENTE</span><h3 id="achievement-title">Comece sua sequência</h3><p id="achievement-text">Conclua uma sessão de estudo hoje para começar sua sequência.</p></div></div></div></section>
+<section class="dashboard-view" data-view-panel="progress"><div class="dashboard-heading"><div><span class="date-kicker">SEU DESENVOLVIMENTO</span><h1>Seu <span>progresso.</span></h1><p>Consulte as sessões concluídas, as horas estudadas e o domínio por matéria.</p></div><button class="date-selector" id="progress-range-button" data-action="toggle-date-range" aria-haspopup="true" aria-expanded="false"><span id="progress-range-label">Últimos 30 dias</span><span>⌄</span></button><div class="date-dropdown hidden" id="progress-range-menu"><button class="date-dropdown-item" data-action="select-date-range" data-range="today"><span>Hoje</span></button><button class="date-dropdown-item" data-action="select-date-range" data-range="yesterday"><span>Ontem</span></button><button class="date-dropdown-item" data-action="select-date-range" data-range="7d"><span>Últimos 7 dias</span></button><button class="date-dropdown-item selected" data-action="select-date-range" data-range="30d"><span>Últimos 30 dias</span></button><button class="date-dropdown-item" data-action="select-date-range" data-range="2m"><span>Último bimestre</span></button><button class="date-dropdown-item" data-action="select-date-range" data-range="6m"><span>Último semestre</span></button></div></div><section class="panel today-check-panel"><div class="panel-header"><div><span class="panel-kicker">JÁ ESTUDOU HOJE?</span><h2>Confirme o que você fez</h2></div><div class="today-check-head-right"><small id="today-check-summary"></small><button class="button button-outline button-small" data-action="open-log-session">+ Estudo extra</button></div></div><div id="today-check-list"></div></section><div class="progress-overview"><div class="panel big-progress-card"><span class="panel-kicker">HORAS ESTUDADAS</span><strong id="big-progress-hours">0<span>h</span> 0<span>min</span></strong><p id="progress-hours-note">nos últimos 30 dias</p><div class="large-chart" id="large-chart"></div></div><div class="panel subject-progress-card"><span class="panel-kicker">DOMÍNIO POR MATÉRIA</span><div id="subject-progress-list"></div><button class="insight-link" data-view-target="syllabus">Ver minha ementa <span>→</span></button></div></div><div class="panel subject-hours-card"><span class="panel-kicker">HORAS POR MATÉRIA</span><div id="subject-hours-list"></div></div><div class="panel achievement-panel"><div><span class="achievement-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/></svg></span><div><span class="panel-kicker">CONQUISTA RECENTE</span><h3 id="achievement-title">Comece sua sequência</h3><p id="achievement-text">Conclua uma sessão de estudo hoje para começar sua sequência.</p></div></div></div></section>
       </div>
     </main>
   </section>
 
-  <div class="toast" id="toast"><span>✦</span><p id="toast-message">Plano atualizado.</p></div>
+  <div class="toast" id="toast"><p id="toast-message">Plano atualizado.</p></div>
 
   <!-- Aviso de 2h estudadas num tópico ainda marcado como "Não sei". No meio da
        tela, com fundo escurecido, para não passar batido: fica até a pessoa responder. -->
   <div class="modal-overlay hidden" id="study-alert">
     <div class="modal-panel study-alert-panel">
-      <div class="study-alert-top"><span class="ai-badge">✦</span><strong id="study-alert-title">2h de estudo</strong><button class="modal-close" data-action="dismiss-study-alert" aria-label="Fechar">✕</button></div>
+      <div class="study-alert-top"><strong id="study-alert-title">2h de estudo</strong><button class="modal-close" data-action="dismiss-study-alert" aria-label="Fechar">✕</button></div>
       <p id="study-alert-text"></p>
       <div class="study-alert-actions">
         <button class="level-choice unknown" data-action="answer-topic-level" data-level="unknown">Não entendi ainda</button>
