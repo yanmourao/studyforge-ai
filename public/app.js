@@ -1996,9 +1996,10 @@ function showLoginStep(formId) {
 
 function switchView(view) {
   state.currentView = view;
+  window.dispatchEvent(new CustomEvent("studyforge:view", {detail: view}));
   $$("[data-view-panel]").forEach((panel) => panel.classList.toggle("active-view", panel.dataset.viewPanel === view));
   $$(".side-nav-item[data-view]").forEach((item) => item.classList.toggle("active", item.dataset.view === view));
-  const labels = { overview: "Visão geral", plan: "Meu plano", syllabus: "Minha ementa", progress: "Meu progresso" };
+  const labels = { overview: "Visão geral", plan: "Meu plano", syllabus: "Minha ementa", progress: "Meu progresso", questions: "Questões" };
   $("#breadcrumb-current").textContent = labels[view] || "Visão geral";
   $(".sidebar")?.classList.remove("sidebar-open");
 }
@@ -2312,6 +2313,7 @@ document.addEventListener("click", async (event) => {
     if (action === "open-settings") openSettingsModal();
     if (action === "close-settings-modal") closeSettingsModal();
     if (action === "logout") {
+      window.dispatchEvent(new CustomEvent("studyforge:logout"));
       await fetch(`${API_BASE}/api/logout`, { method: "POST", credentials: "include" });
       window.location.reload();
     }

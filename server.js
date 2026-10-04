@@ -626,6 +626,7 @@ async function requirePlus(req, res, next) {
 
 // Prefixos: cobre também /api/sessions/:id/toggle.
 app.use(["/api/dashboard", "/api/sessions", "/api/syllabus"], requirePlus);
+app.use("/api/questions", requirePlus, require("./question-api").createQuestionRouter(pool, getAuthenticatedUserId));
 
 app.post("/api/profile", async (req, res) => {
   const userId = getAuthenticatedUserId(req);

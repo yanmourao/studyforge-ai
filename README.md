@@ -122,3 +122,38 @@ node scripts/setup-db.js
 - Assinatura obrigatória via Stripe Checkout, com 5 dias de teste grátis: sem `plan = 'plus'` o dashboard não abre e as rotas de dados respondem 402. Cancelamento e troca de cartão pelo Customer Portal da Stripe (Configurações → Assinatura); webhook mantém o plano sincronizado no banco
 
 Não há tutor de IA: ele foi removido por só devolver respostas fixas. Uma integração real com LLM (tutor ou geração de plano) pode ser adicionada sobre esta base.
+
+
+## Banco de questões
+
+A aba **Questões** reúne 60 questões autorais de prática, com 10 questões de
+Matemática, Português, Biologia, História, Física e Química. O acervo inicial
+fica em `question-bank.js`; mantenha a ordem das matérias e das questões para
+preservar seus identificadores e o histórico. Gabaritos e explicações são
+enviados somente após a resposta, corrigida no servidor.
+
+- **Prática avulsa:** correção e explicação imediatas; as tentativas não entram
+  no resumo das sessões.
+- **Sessão de estudo:** permite alternar matérias e conta cada questão uma vez.
+  A sessão ativa e as respostas são restauradas após recarregar.
+- **Resumo:** acertos sobre o total respondido, porcentagem, tempo corrido e
+  matérias praticadas, com detalhamento por matéria e histórico das últimas
+  10 sessões. O tempo por matéria soma leitura e resposta de questões respondidas,
+  enquanto a página está visível; o tempo total segue até encerrar.
+
+As tabelas `question_sessions` e `question_attempts` são criadas por
+`ensureSchema()` na inicialização. As rotas `/api/questions/*` seguem o acesso
+por assinatura da aplicação. Reinicie o servidor após atualizar o código.
+
+### Testes de questões
+
+Os testes usam um schema temporário no PostgreSQL **local**, removido ao final,
+sem alterar registros da aplicação. Precisam do `.env` local com as variáveis
+`PG*` e `SESSION_SECRET`, sem `DATABASE_URL`.
+
+`npm run test:questions` verifica autenticação, assinatura, correção,
+concorrência, isolamento entre usuários, retomada e resumo.
+
+`npm run test:questions:browser` verifica o fluxo no Chrome sem interface,
+desktop e celular, e salva capturas em `artifacts/questions/`. Por padrão usa
+o Chrome instalado no Windows; `CHROME_PATH` permite indicar outro executável.

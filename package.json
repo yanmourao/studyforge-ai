@@ -9,7 +9,9 @@
     "start": "node server.js",
     "start:next": "next start -p 3001",
     "db:reset": "node scripts/setup-db.js",
-    "test": "node scripts/test-reset-token.js"
+    "test": "node scripts/test-reset-token.js",
+    "test:questions": "node scripts/test-questions.js",
+    "test:questions:browser": "node scripts/test-questions-browser.js"
   },
   "repository": {
     "type": "git",

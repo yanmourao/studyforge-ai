@@ -9,7 +9,7 @@ const { Pool, types } = require("pg");
 types.setTypeParser(114, (v) => v); // json
 types.setTypeParser(3802, (v) => v); // jsonb
 
-const TABLES = ["users", "study_sessions", "syllabus_progress"];
+const TABLES = ["users", "study_sessions", "syllabus_progress", "question_sessions", "question_attempts"];
 
 async function main() {
   const [fromUrl, toUrl] = process.argv.slice(2);

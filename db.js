@@ -84,6 +84,33 @@ async function ensureSchema() {
     UPDATE users SET plan = 'plus'
     WHERE plan = 'free' AND stripe_customer_id IS NULL AND created_at < '2026-08-02'
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS question_sessions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ended_at TIMESTAMPTZ,
+      CHECK (ended_at IS NULL OR ended_at >= started_at)
+    )
+  `);
+  await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS question_sessions_active_idx ON question_sessions (user_id) WHERE ended_at IS NULL");
+  await pool.query("CREATE INDEX IF NOT EXISTS question_sessions_user_idx ON question_sessions (user_id, started_at DESC)");
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS question_attempts (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      session_id INTEGER REFERENCES question_sessions(id) ON DELETE CASCADE,
+      question_id VARCHAR(30) NOT NULL,
+      subject VARCHAR(100) NOT NULL,
+      selected_option INTEGER NOT NULL CHECK (selected_option BETWEEN 0 AND 3),
+      correct BOOLEAN NOT NULL,
+      duration_seconds INTEGER NOT NULL CHECK (duration_seconds BETWEEN 0 AND 86400),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (session_id, question_id)
+    )
+  `);
+  await pool.query("CREATE INDEX IF NOT EXISTS question_attempts_user_idx ON question_attempts (user_id, session_id)");
+
 }
 
 module.exports = pool;
