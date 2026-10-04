@@ -1,0 +1,77 @@
+/* Constellation composition using the original shared theme and components. */
+body:not(.premium-edition) .landing-screen .hero {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  min-height: 0;
+  padding: 80px 0 0;
+}
+.knowledge-background {
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  width: 100vw;
+  height: 800px;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: .75;
+  background: url("assets/knowledge-constellation.svg") center top / max(1440px, 100%) 720px no-repeat;
+  mask-image: linear-gradient(transparent, #000 12%, #000 65%, transparent);
+}
+[data-theme="dark"] .knowledge-background {
+  opacity: 1;
+  background:
+    url("assets/knowledge-constellation.svg") center top / max(1440px, 100%) 720px no-repeat,
+    radial-gradient(ellipse at 50% 28%, var(--canvas) 0%, color-mix(in srgb, var(--canvas) 96%, transparent) 25%, color-mix(in srgb, var(--canvas) 35%, transparent) 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--canvas) 35%, transparent), color-mix(in srgb, var(--canvas) 65%, transparent) 75%, var(--canvas)),
+    url("assets/knowledge-sky.webp") center 42% / cover no-repeat;
+}
+body:not(.premium-edition) .landing-screen .hero-copy { max-width: 920px; text-align: center; padding: 0; }
+body:not(.premium-edition) .landing-screen .hero .eyebrow {
+  justify-content: center;
+  width: fit-content;
+  margin: 0 auto;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 9px 14px;
+  font-size: 11px;
+}
+body:not(.premium-edition) .landing-screen .hero h1 { font-size: clamp(40px, 4.7vw, 68px); line-height: 1.08; letter-spacing: -3px; margin: 26px 0 22px; }
+body:not(.premium-edition) .landing-screen .hero-text { max-width: 570px; margin: 0 auto; line-height: 1.8; font-size: 15px; }
+body:not(.premium-edition) .landing-screen .hero-cta-row { justify-content: center; margin-top: 28px; gap: 16px; }
+.knowledge-product-label { display: flex; justify-content: space-between; width: min(100%, 1020px); margin-top: 72px; padding: 0 6px 14px; color: var(--ink-soft); font-size: 11px; }
+.knowledge-product-label span:last-child { color: var(--muted); }
+body:not(.premium-edition) .landing-screen .hero-visual {
+  width: 100%;
+  max-width: 1020px;
+  min-height: 0;
+  margin: 0;
+  padding: 8px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 20px 70px color-mix(in srgb, var(--ink) 8%, transparent);
+}
+body:not(.premium-edition) .landing-screen .hero-visual .preview-label { margin: 0; padding: 6px 8px 14px; font-size: 10px; }
+body:not(.premium-edition) .landing-screen .dashboard-preview { width: 100%; transform: none; left: auto; top: auto; }
+body:not(.premium-edition) .landing-screen .preview-body { padding: 28px 36px 36px; }
+body:not(.premium-edition) .landing-screen .preview-heading h3 { font-size: 26px; }
+.premium-edition .knowledge-background, .premium-edition .knowledge-product-label { display: none; }
+@media (max-width: 760px) {
+  body:not(.premium-edition) .landing-screen .hero { padding-top: 52px; }
+  .knowledge-background { top: 0; height: 650px; background-size: 650px 560px; }
+  [data-theme="dark"] .knowledge-background { opacity: .85; background-size: 650px 560px, auto, auto, auto 650px; background-position: center top, center, center, 55% top; }
+  body:not(.premium-edition) .landing-screen .hero h1 { font-size: clamp(34px, 8.8vw, 46px); letter-spacing: -1.8px; }
+  body:not(.premium-edition) .landing-screen .hero-text { font-size: 13px; }
+  body:not(.premium-edition) .landing-screen .hero .eyebrow { font-size: 10px; }
+  body:not(.premium-edition) .landing-screen .hero-cta-row { gap: 12px; }
+  .knowledge-product-label { margin-top: 44px; font-size: 10px; }
+  .knowledge-product-label span:last-child { display: none; }
+  body:not(.premium-edition) .landing-screen .preview-body { padding: 22px 18px 28px; }
+  body:not(.premium-edition) .landing-screen .preview-heading h3 { font-size: 23px; }
+}

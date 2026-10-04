@@ -157,3 +157,23 @@ concorrência, isolamento entre usuários, retomada e resumo.
 `npm run test:questions:browser` verifica o fluxo no Chrome sem interface,
 desktop e celular, e salva capturas em `artifacts/questions/`. Por padrão usa
 o Chrome instalado no Windows; `CHROME_PATH` permite indicar outro executável.
+
+## Prévia visual alternativa
+
+`npm run preview:premium` abre um servidor local em `http://localhost:3002`
+com uma apresentação em preto, cinza e branco, inspirada na referência de
+design. No PowerShell, use `npm.cmd run preview:premium`.
+
+Essa entrada usa `public/premium.css` sobre a interface existente, inicia no
+tema escuro e mantém os fluxos e o banco de dados da aplicação. A página
+principal não recebe esse estilo. `PREMIUM_PORT` permite escolher outra porta.
+
+O topo da prévia combina uma textura azul/violeta com uma constelação em SVG,
+detalhes coral e verde e uma máscara escura para preservar a leitura. Os recursos
+são servidos de `public/assets`; a origem e a licença da foto estão em
+`public/assets/CREDITS.md`. O tema claro usa apenas a ilustração vetorial.
+
+A página original também usa essa composição no topo, com título centralizado
+e prévia do painel abaixo, através de `public/landing.css`. Essa folha preserva
+as cores dos temas originais e os componentes do aplicativo; a paleta monocromática
+continua exclusiva da prévia premium.

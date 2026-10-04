@@ -7,6 +7,7 @@
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "node server.js",
+    "preview:premium": "node scripts/preview-premium.js",
     "start:next": "next start -p 3001",
     "db:reset": "node scripts/setup-db.js",
     "test": "node scripts/test-reset-token.js",

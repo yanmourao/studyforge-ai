@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="720" viewBox="0 0 1440 720" fill="none">
+  <defs>
+    <radialGradient id="warm"><stop stop-color="#ed8a66" stop-opacity=".14"/><stop offset="1" stop-color="#ed8a66" stop-opacity="0"/></radialGradient>
+    <radialGradient id="cool"><stop stop-color="#91c8c0" stop-opacity=".12"/><stop offset="1" stop-color="#91c8c0" stop-opacity="0"/></radialGradient>
+  </defs>
+  <ellipse cx="1160" cy="270" rx="245" ry="270" fill="url(#warm)"/>
+  <ellipse cx="220" cy="280" rx="245" ry="270" fill="url(#cool)"/>
+  <g stroke="#91c8c0" stroke-opacity=".24" stroke-width=".8">
+    <path d="M-30 180 72 128 173 210 248 135 330 197M72 128 92 302 173 210 206 348 92 302 34 433 160 486 206 348 290 418 330 197M173 210 248 135 290 418 160 486 264 582M34 433 92 302M-20 535 160 486"/>
+  </g>
+  <g stroke="#ed8a66" stroke-opacity=".28" stroke-width=".8">
+    <path d="M1110 156 1200 92 1286 193 1380 137 1480 246M1110 156 1152 310 1286 193 1250 366 1152 310 1082 462 1206 510 1250 366 1360 430 1380 137M1286 193 1360 430 1444 342M1082 462 1206 510 1310 580 1360 430M1200 92 1250 366"/>
+  </g>
+  <g fill="#91c8c0">
+    <circle cx="72" cy="128" r="2"/><circle cx="173" cy="210" r="3"/><circle cx="248" cy="135" r="2"/><circle cx="330" cy="197" r="1.6"/><circle cx="92" cy="302" r="2"/><circle cx="206" cy="348" r="3"/><circle cx="34" cy="433" r="1.5"/><circle cx="160" cy="486" r="2"/><circle cx="290" cy="418" r="1.7"/><circle cx="264" cy="582" r="1.5"/>
+  </g>
+  <g fill="#ed8a66">
+    <circle cx="1110" cy="156" r="2"/><circle cx="1200" cy="92" r="1.5"/><circle cx="1286" cy="193" r="3"/><circle cx="1380" cy="137" r="2"/><circle cx="1152" cy="310" r="2.5"/><circle cx="1250" cy="366" r="3"/><circle cx="1082" cy="462" r="1.5"/><circle cx="1206" cy="510" r="2"/><circle cx="1360" cy="430" r="2"/><circle cx="1310" cy="580" r="1.5"/>
+  </g>
+  <g stroke-width="1" opacity=".3">
+    <circle cx="173" cy="210" r="10" stroke="#91c8c0"/><circle cx="206" cy="348" r="8" stroke="#91c8c0"/>
+    <circle cx="1286" cy="193" r="10" stroke="#ed8a66"/><circle cx="1250" cy="366" r="8" stroke="#ed8a66"/>
+  </g>
+</svg>
